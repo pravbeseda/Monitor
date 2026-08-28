@@ -10,8 +10,10 @@ everything later grows from without a rewrite:
 Scope: laptop-class nodes (macOS) and server-class nodes (Debian). Windows comes later,
 but cross-platform support is a stack requirement from day one.
 
-Metrics: free space (bytes and percent) per mounted volume per node, plus a `heartbeat`
-metric that proves the agent is alive.
+Metrics: free space (bytes and percent) per mounted volume per node. The agent's
+liveness needs no metric of its own: the authenticated ingest request itself is the
+heartbeat — every accepted request advances the node's last-seen
+([ingest spec](specs/ingest.md)).
 
 ## Terminology
 

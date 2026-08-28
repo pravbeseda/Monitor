@@ -9,6 +9,7 @@ entry point to every document in the project.
 |---|---|
 | [concept.md](concept.md) | Idea, architectural principles, planned skins, domains, roadmap |
 | [poc.md](poc.md) | POC spec: scope, terminology, wire format, work plan, answered questions |
+| [plans/stage-1-skeleton.md](plans/stage-1-skeleton.md) | Step plan for POC stage 1: scaffolding → ingest → sensor → agent loop → web page |
 
 ## Architecture decisions
 
@@ -40,7 +41,7 @@ tests are derived from. Required for contracts, stateful algorithms and multi-se
 
 | Spec | Owns | Status |
 |---|---|---|
-| _none yet_ | | |
+| [ingest.md](specs/ingest.md) | `/api/v1/ingest` contract: request, response, config delivery | approved |
 
 ## Design notes
 
@@ -55,7 +56,6 @@ Reasoning from working sessions, including options that were rejected.
 - `docs/architecture/` — subsystem documents arrive with the code. Until then the
   architecture fits in [concept.md](concept.md), the ADRs and the specs, and duplicating it
   would create a second source of truth.
-- `docs/plans/` — stage-sized plans; created with the first one.
 - Install and deployment guide — after POC stage 1.
 
 ## Where a new open question goes
