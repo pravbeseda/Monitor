@@ -27,19 +27,36 @@ Four levels, and only the first one is versioned here:
 | Level | Contents | Where it lives |
 |---|---|---|
 | Tooling | agent, hub, evaluation engine, skins, general-purpose sensors | **this public repository** |
-| Configuration | metric schemas, thresholds, node names and classes, domains, chat ids, skin mappings | on the server; a private repository once it outgrows a few files |
+| Configuration | node names and classes, domains, chat ids, per-host and per-volume overrides, skin mappings | on the server; a private repository once it outgrows a few files |
 | Secrets | node tokens, bot token, TLS material | environment file (mode 600) or OS keychain, never in configuration files |
 | Measurements | the SQLite database | on the server only, never beside a checkout |
 
-**Never committed:** real node names, real thresholds, real domains or addresses, exported
-health or finance data, fixtures built from real exports, database dumps, screenshots of a
-live dashboard, log excerpts containing mount points or node names.
+**Never committed:** real node names, real domains or addresses, thresholds tied to a named
+host or volume, exported health or finance data, fixtures built from real exports, database
+dumps, screenshots of a live dashboard, log excerpts containing mount points or node names.
 
 **Rules that make the split hold:**
 
-1. **No configuration defaults in code.** The hub does not start with "reasonable values"
-   when configuration is missing; it exits with a clear error. A default is how a personal
-   setting leaks into the tool.
+1. **Product defaults are public; deployment settings are mandatory.** Two kinds of value
+   are easy to confuse, and only one of them may live in code:
+
+   - **Product defaults** — thresholds, intervals, the filesystem-type allow-list, sensor
+     profiles. They describe how the tool behaves out of the box, disclose nothing about any
+     particular installation, and belong in the repository. `node_exporter` shipping a
+     default metric set is the same thing.
+   - **Deployment settings** — hub address, node tokens, node names and classes, chat ids,
+     and any override aimed at a specific host or volume. These have **no defaults at all**:
+     missing configuration is a clear startup error, never a "reasonable value", because a
+     default here is how one person's setup leaks into the tool.
+
+   The test is whether the value says something about *an installation*. "Warn below 15%"
+   does not; "warn below 15% on `srv-backup`" does.
+
+   This clarifies [0006](0006-alerting-rules.md), which says thresholds live in the hub's
+   configuration and never in code. That still holds for what it was aimed at — a threshold
+   must never be hard-coded in the evaluation logic, where changing it would need a rebuild.
+   Product defaults are the other thing: values the tool falls back to when configuration
+   says nothing, overridable at every layer without touching the binary.
 2. **Examples are synthetic.** `config.example.yaml` and every sample in the documentation
    use invented names (`laptop-a`, `server-b`) and round numbers.
 3. **Fixtures are synthetic.** Test data is generated or hand-written, never a real export.

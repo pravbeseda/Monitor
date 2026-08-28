@@ -28,6 +28,13 @@ that lives as long as the code, an ADR is history that is never edited.
 experiments, for the disposable POC page, or for infrastructure chores. Premature
 specification of something not yet understood is a cost, not a safeguard.
 
+**The spec gates the implementation, not the decision.** A subsystem's spec is approved
+before its code is written, not before the ADR that chose the approach. The order is
+decision → spec → code: an ADR settles which approach is taken, and the behaviour it implies
+— what happens on an unknown token, a malformed payload, a restart mid-incident — can only
+be specified once that approach exists. Requiring the table first would mean describing the
+behaviour of something not yet decided.
+
 **Every spec carries a behaviour table** — states, events, resulting state, side effects.
 The table is the point of the document: it is what a human reviews in minutes and what
 tests are derived from one row at a time. Prose around it stays minimal.

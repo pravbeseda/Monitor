@@ -25,14 +25,16 @@ metric that proves the agent is alive.
 
 The reasoning and the rejected alternatives are in the ADRs; the POC only applies them.
 
-- [0002](decisions/0002-push-not-pull.md) — agents push over HTTPS; node silence is an
-  expected state, configured per node class.
-- [0003](decisions/0003-sensors-are-modules.md) — sensors are in-process modules.
-- [0004](decisions/0004-two-binaries-monorepo.md) — two build artifacts: `agent` and `hub`.
-- [0005](decisions/0005-poc-stack.md) — Go, SQLite, server-side HTML *(proposed)*.
-- [0006](decisions/0006-alerting-rules.md) — alert on transitions, critical only instantly.
-- [0007](decisions/0007-public-repository.md) — no node names, thresholds or secrets in
-  this repository.
+- [0002](decisions/0002-push-not-pull.md) — push, not pull
+- [0003](decisions/0003-sensors-are-modules.md) — sensors are modules
+- [0004](decisions/0004-two-binaries-monorepo.md) — two artifacts, one repository
+- [0005](decisions/0005-poc-stack.md) — the stack
+- [0006](decisions/0006-alerting-rules.md) — alerting rules
+- [0007](decisions/0007-public-repository.md) — what may not enter this repository
+- [0010](decisions/0010-agent-configuration.md) — where the agent's configuration comes from
+- [0011](decisions/0011-quality-gates.md) — the quality gates
+- [0012](decisions/0012-threshold-model.md) — the disk threshold model
+- [0013](decisions/0013-relative-hysteresis.md) — how a state recovers
 
 ## Wire format
 
@@ -52,9 +54,10 @@ POST /api/v1/ingest
 }
 ```
 
-Thresholds and node classes are declared in the hub's YAML configuration, never in code.
-The real file lives on the server and is not part of this repository; the repository ships
-only an example:
+Thresholds and node classes are declared in the hub's YAML configuration, never hard-coded
+in the evaluation logic; product defaults apply where that file says nothing
+([0007](decisions/0007-public-repository.md)). The deployment file itself lives on the server
+and is not part of this repository, which ships only an example:
 
 ```yaml
 metrics:
@@ -82,21 +85,43 @@ nodes:
 
 **Stage 3 — operation**
 - [ ] systemd and launchd units, agent install script
-- [ ] Caddy with TLS, per-node tokens, authentication on the web page
+- [ ] nginx vhost for the hub, per-node tokens, authentication on the web page
 - [ ] Roll out to every node, observe for a week, tune thresholds
 
 **Done when**: filling a disk on a test node produces a Telegram alert within one interval,
 the node turns red on the web page, and the value history is visible for the whole
 observation period.
 
-## Open questions
+## Questions, answered
 
-1. Language: is Go agreed, or is there a stack that is simply more pleasant to write in?
-   (This is a personal project — motivation outranks optimality.)
-2. Where does the hub live, and does that host have a domain or a static address?
-3. Polling interval: 5 minutes for servers, 15 for laptops?
-4. Thresholds: 15% / 7% free to start? Separate thresholds for backup volumes, which are
-   always nearly full by design?
-5. Which volumes are excluded (APFS snapshots, `/boot/efi`, tmpfs, external drives)?
-6. Telegram: a private chat or a channel? A single recipient?
-7. Retention of raw points — keep everything? At minute intervals that is megabytes a year.
+All eight are settled. The architectural ones are owned by the ADR named against them; the
+rest are recorded here, which is where they belong.
+
+1. **Language** — Go for the agent and the hub; skins stay TypeScript over the State API.
+   → [0005](decisions/0005-poc-stack.md), with the quality gates that made the trade sound
+   in [0011](decisions/0011-quality-gates.md).
+2. **Where the hub lives** — on one of the Debian servers, behind the nginx and certificate
+   already on that host; the hub binds to localhost. The host name is a deployment setting
+   and stays out of this repository ([0007](decisions/0007-public-repository.md)).
+3. **Intervals** — per sensor, configured centrally, layered, delivered in the ingest
+   response. → [0010](decisions/0010-agent-configuration.md). Starting values: disk every 15m
+   on servers and 1h on laptops, above a 5m base tick.
+4. **Thresholds** — a floor plus a proportional band, with backup volumes declared by role.
+   → [0012](decisions/0012-threshold-model.md).
+5. **Volumes and sensors** — an allow-list of filesystem types (`apfs`, `ext4`, `xfs`,
+   `btrfs`, `zfs`, `ntfs`) delivered with the configuration; external drives are collected
+   and flagged removable so an unplugged one is not read as a volume that vanished. Which
+   sensors run is chosen by profile plus applicability.
+   → [0010](decisions/0010-agent-configuration.md).
+6. **Telegram** — a private chat, one recipient. The bot works both ways (manual input,
+   summaries on request) and a channel has no dialogue. The recipient is one configuration
+   value behind the `Notifier` interface.
+7. **Retention** — keep every raw point; no downsampling is written. Tens of megabytes a year
+   grows slower than storage gets cheaper, aggregation is irreversible, and a long series is
+   what makes trends work. When it does become a problem it gets its own ADR. A daily
+   `sqlite3 monitor.db ".backup /path/backup.db"` to the second server guards the history
+   against the likelier accident — a plain `cp` is not equivalent, because in WAL mode the
+   most recent transactions live in the `-wal` file and copying the database alone can lose
+   them or corrupt the copy.
+8. **Storage** — SQLite behind the `Storage` interface, not the MySQL already on that host.
+   → [0005](decisions/0005-poc-stack.md).
