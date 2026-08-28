@@ -32,8 +32,9 @@ specification of something not yet understood is a cost, not a safeguard.
 The table is the point of the document: it is what a human reviews in minutes and what
 tests are derived from one row at a time. Prose around it stays minimal.
 
-**Tests cite the spec.** Each behaviour test carries an anchor (`spec: thresholds.md#hysteresis`)
-so a row without a test, or a test without a row, is visible.
+**Rows and tests cite each other.** Every row of a behaviour table has a test, and that test
+carries an anchor to the row (`spec: thresholds.md#hysteresis`), so a row without a test or a
+test without a row is visible. Spec-exempt work has no rows, and therefore no anchors.
 
 **Division of labour:**
 
