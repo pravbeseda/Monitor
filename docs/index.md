@@ -58,7 +58,10 @@ Reasoning from working sessions, including options that were rejected.
 - `docs/plans/` — stage-sized plans; created with the first one.
 - Install and deployment guide — after POC stage 1.
 
-## Open questions
+## Where a new open question goes
 
-Kept at the end of [poc.md](poc.md). When one is answered, that document is updated in the
-same session, and the answer becomes an ADR if it is architectural.
+It is written into the document it belongs to — a POC question into [poc.md](poc.md), a
+subsystem question into its spec — and answered in the same session it is raised, not
+collected for later. An answer that settles how the system is built becomes an ADR; the rest
+stays where the question was asked. The questions this POC started with are answered at the
+end of [poc.md](poc.md).

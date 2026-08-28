@@ -31,8 +31,21 @@ The margin is a property of the threshold, not of the unit, so it applies unchan
 metric the system will ever carry. For percentage thresholds it reproduces what 0006
 prescribed, so nothing about existing behaviour changes.
 
-Each condition of a compound rule ([0012](0012-threshold-model.md)) carries its own margin;
-the state leaves a severity only when every condition that put it there has cleared.
+**The margin applies to thresholds, not to guards.** A compound rule
+([0012](0012-threshold-model.md)) mixes two kinds of condition, and only one of them
+oscillates around "bad":
+
+- a **threshold** asks whether the value is bad now — the floor and the ratio. It carries the
+  margin.
+- a **guard** asks whether the rule applies to this volume at all — the ceiling. It is
+  evaluated as written, with no margin.
+
+Giving a guard a margin latches the state: a 128 GB volume warning at 19 GB free would need
+120 GB free to clear a 100 GB ceiling, which is an almost empty disk. With the split it
+returns to ok at 18% — about 23 GB — while an 8 TB volume never enters the rule, because its
+guard is false from the start.
+
+The state leaves a severity when every threshold that put it there has cleared its margin.
 
 ## Consequences
 

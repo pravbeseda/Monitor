@@ -25,20 +25,16 @@ metric that proves the agent is alive.
 
 The reasoning and the rejected alternatives are in the ADRs; the POC only applies them.
 
-- [0002](decisions/0002-push-not-pull.md) — agents push over HTTPS; node silence is an
-  expected state, configured per node class.
-- [0003](decisions/0003-sensors-are-modules.md) — sensors are in-process modules.
-- [0004](decisions/0004-two-binaries-monorepo.md) — two build artifacts: `agent` and `hub`.
-- [0005](decisions/0005-poc-stack.md) — Go, SQLite, server-side HTML.
-- [0010](decisions/0010-agent-configuration.md) — the agent's configuration comes from the
-  hub in the ingest response.
-- [0011](decisions/0011-quality-gates.md) — `gofmt`, `go vet`, `golangci-lint` and
-  `go test -race -cover` gate every change.
-- [0012](decisions/0012-threshold-model.md) — thresholds fire on percentage or absolute
-  headroom, whichever comes first.
-- [0006](decisions/0006-alerting-rules.md) — alert on transitions, critical only instantly.
-- [0007](decisions/0007-public-repository.md) — no node names, thresholds or secrets in
-  this repository.
+- [0002](decisions/0002-push-not-pull.md) — push, not pull
+- [0003](decisions/0003-sensors-are-modules.md) — sensors are modules
+- [0004](decisions/0004-two-binaries-monorepo.md) — two artifacts, one repository
+- [0005](decisions/0005-poc-stack.md) — the stack
+- [0006](decisions/0006-alerting-rules.md) — alerting rules
+- [0007](decisions/0007-public-repository.md) — what may not enter this repository
+- [0010](decisions/0010-agent-configuration.md) — where the agent's configuration comes from
+- [0011](decisions/0011-quality-gates.md) — the quality gates
+- [0012](decisions/0012-threshold-model.md) — the disk threshold model
+- [0013](decisions/0013-relative-hysteresis.md) — how a state recovers
 
 ## Wire format
 
@@ -58,9 +54,10 @@ POST /api/v1/ingest
 }
 ```
 
-Thresholds and node classes are declared in the hub's YAML configuration, never in code.
-The real file lives on the server and is not part of this repository; the repository ships
-only an example:
+Thresholds and node classes are declared in the hub's YAML configuration, never hard-coded
+in the evaluation logic; product defaults apply where that file says nothing
+([0007](decisions/0007-public-repository.md)). The deployment file itself lives on the server
+and is not part of this repository, which ships only an example:
 
 ```yaml
 metrics:

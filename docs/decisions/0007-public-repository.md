@@ -51,6 +51,12 @@ dumps, screenshots of a live dashboard, log excerpts containing mount points or 
 
    The test is whether the value says something about *an installation*. "Warn below 15%"
    does not; "warn below 15% on `srv-backup`" does.
+
+   This clarifies [0006](0006-alerting-rules.md), which says thresholds live in the hub's
+   configuration and never in code. That still holds for what it was aimed at — a threshold
+   must never be hard-coded in the evaluation logic, where changing it would need a rebuild.
+   Product defaults are the other thing: values the tool falls back to when configuration
+   says nothing, overridable at every layer without touching the binary.
 2. **Examples are synthetic.** `config.example.yaml` and every sample in the documentation
    use invented names (`laptop-a`, `server-b`) and round numbers.
 3. **Fixtures are synthetic.** Test data is generated or hand-written, never a real export.

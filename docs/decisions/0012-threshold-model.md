@@ -17,14 +17,19 @@ A disk threshold is a floor plus a band, so the rule adapts to the size of the v
 instead of needing an exception per volume:
 
 ```
-alert when   free < floor
-      or     (free% < ratio  and  free < ceiling)
+alert when   free < floor                          # threshold
+      or     (free% < ratio  and  free < ceiling)  # threshold, guarded by size
 ```
 
 | Level | Floor | Ratio | Ceiling |
 |---|---|---|---|
 | warning | 10 GB | 15% | 100 GB |
 | critical | 4 GB | 7% | 40 GB |
+
+The floor and the ratio are **thresholds** — they say the value is bad. The ceiling is a
+**guard**: it says nothing about health, only whether the proportional rule applies to a
+volume of this size. The distinction matters for recovery, where a margin belongs to
+thresholds alone ([0013](0013-relative-hysteresis.md)).
 
 The floor catches any volume that is genuinely close to full, whatever its size. The band
 catches a volume running low proportionally, but only while its absolute headroom is small
