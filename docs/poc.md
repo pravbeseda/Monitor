@@ -74,8 +74,11 @@ nodes:
 
 **Stage 1 — skeleton (one end-to-end thread)**
 - [ ] Monorepo: `cmd/agent`, `cmd/hub`, `internal/...`
-- [ ] Agent: disk sensor, configuration (url, token, interval), push loop
+- [ ] Agent: disk sensor, local configuration limited to the hub url and its token, push loop
 - [ ] Hub: `/api/v1/ingest`, write to SQLite, page `/` with the latest values
+- [ ] Collection intervals travel in the ingest response: the agent sends the configuration
+      version it holds, the hub answers with a newer one when it has it
+      ([0010](decisions/0010-agent-configuration.md))
 - [ ] Run by hand on one laptop and one server
 
 **Stage 2 — evaluation and alerts**

@@ -6,9 +6,10 @@ rank, freshness) and is rendered by interchangeable skins.
 
 ## Current state
 
-**Design stage — no code yet.** No build, no tests, no dependency manifest, and the
-directory is not yet a git repository. Do not invent commands for any of these; if a task
-needs them, they have to be created first.
+**Design stage — no code yet.** No build, no tests and no dependency manifest. Do not
+invent commands for any of these; if a task needs them, they have to be created first.
+The directory is a git repository, so the branch and pull request workflow below applies
+from the first change.
 
 ## Start here
 
