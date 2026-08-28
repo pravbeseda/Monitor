@@ -6,10 +6,15 @@ rank, freshness) and is rendered by interchangeable skins.
 
 ## Current state
 
-**Design stage — no code yet.** No build, no tests and no dependency manifest. Do not
-invent commands for any of these; if a task needs them, they have to be created first.
-The directory is a git repository, so the branch and pull request workflow below applies
-from the first change.
+**POC stage 1 — the skeleton is being built** ([plan](docs/plans/stage-1-skeleton.md)).
+A Go module (`github.com/pravbeseda/Monitor`) with two hello-world binaries and the
+quality gates; ingest, storage, sensor, agent loop and web page are still to come.
+
+```
+go test -race -cover ./...   # tests
+gofmt -l . && go vet ./...   # the fast pair, also run by the pre-commit hook
+golangci-lint run            # the full linter set, also run by CI
+```
 
 ## Start here
 
@@ -65,6 +70,7 @@ are versioned, so a fresh clone must enable them once:
 ```
 git config core.hooksPath .githooks   # required after cloning
 brew install gitleaks                 # macOS; see the gitleaks README on Debian
+brew install go golangci-lint         # the toolchain the hook and CI run
 ```
 
 ## Language

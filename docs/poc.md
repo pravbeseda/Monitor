@@ -80,7 +80,8 @@ nodes:
 ## Work plan
 
 **Stage 1 — skeleton (one end-to-end thread)**
-- [ ] Monorepo: `cmd/agent`, `cmd/hub`, `internal/...`
+- [x] Monorepo: `cmd/agent`, `cmd/hub`, `internal/...`, with the quality gates of
+      [0011](decisions/0011-quality-gates.md) in CI and the pre-commit hook
 - [ ] Agent: disk sensor, local configuration limited to the hub url and its token, push loop
 - [ ] Hub: `/api/v1/ingest`, write to SQLite, page `/` with the latest values
 - [ ] Collection intervals travel in the ingest response, keyed off `config_version`

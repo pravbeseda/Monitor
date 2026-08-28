@@ -1,0 +1,14 @@
+package version_test
+
+import (
+	"regexp"
+	"testing"
+
+	"github.com/pravbeseda/Monitor/internal/version"
+)
+
+func TestCurrentIsSemver(t *testing.T) {
+	if !regexp.MustCompile(`^\d+\.\d+\.\d+$`).MatchString(version.Current) {
+		t.Errorf("version.Current = %q, want MAJOR.MINOR.PATCH", version.Current)
+	}
+}
