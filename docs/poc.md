@@ -46,6 +46,7 @@ POST /api/v1/ingest
 {
   "node": "laptop-a",
   "agent_version": "0.1.0",
+  "config_version": "7",
   "ts": "2026-08-28T10:00:00Z",
   "measurements": [
     { "metric": "disk.free_bytes", "labels": {"mount": "/", "fs": "apfs"}, "value": 123456789 },
@@ -53,6 +54,10 @@ POST /api/v1/ingest
   ]
 }
 ```
+
+`config_version` is the configuration the agent currently holds; when it differs from the
+hub's, the response carries the newer one ([0010](decisions/0010-agent-configuration.md)).
+The shape of that response belongs in the ingest spec.
 
 Thresholds and node classes are declared in the hub's YAML configuration, never hard-coded
 in the evaluation logic; product defaults apply where that file says nothing
@@ -74,8 +79,10 @@ nodes:
 
 **Stage 1 — skeleton (one end-to-end thread)**
 - [ ] Monorepo: `cmd/agent`, `cmd/hub`, `internal/...`
-- [ ] Agent: disk sensor, configuration (url, token, interval), push loop
+- [ ] Agent: disk sensor, local configuration limited to the hub url and its token, push loop
 - [ ] Hub: `/api/v1/ingest`, write to SQLite, page `/` with the latest values
+- [ ] Collection intervals travel in the ingest response, keyed off `config_version`
+      ([0010](decisions/0010-agent-configuration.md))
 - [ ] Run by hand on one laptop and one server
 
 **Stage 2 — evaluation and alerts**
