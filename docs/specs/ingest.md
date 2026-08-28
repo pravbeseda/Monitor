@@ -31,9 +31,10 @@ Authorization: Bearer <per-node token>
     { "sensor": "battery", "applicable": false }
   ],
   "measurements": [
-    { "metric": "disk.free_bytes", "labels": {"mount": "/", "fs": "apfs"}, "value": 123456789 },
-    { "metric": "disk.free_pct",   "labels": {"mount": "/"}, "value": 34.2,
-      "ts": "2026-08-28T09:55:00Z" }
+    { "metric": "disk.free_bytes", "labels": {"mount": "/", "fs": "apfs", "removable": "false"},
+      "value": 123456789 },
+    { "metric": "disk.free_pct",   "labels": {"mount": "/", "fs": "apfs", "removable": "false"},
+      "value": 34.2, "ts": "2026-08-28T09:55:00Z" }
   ]
 }
 ```

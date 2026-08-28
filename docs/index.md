@@ -43,6 +43,7 @@ tests are derived from. Required for contracts, stateful algorithms and multi-se
 |---|---|---|
 | [ingest.md](specs/ingest.md) | `/api/v1/ingest` contract: request, response, config delivery | approved |
 | [hub-config.md](specs/hub-config.md) | The hub's YAML file: validation, layering, per-node configuration and its version | approved |
+| [disk-sensor.md](specs/disk-sensor.md) | The disk sensor: enumeration, filtering and the label contract of its metrics | approved |
 
 ## Design notes
 
