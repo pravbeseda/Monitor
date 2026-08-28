@@ -21,3 +21,15 @@ if [ -n "$forbidden" ]; then
 fi
 
 gitleaks git --staged --redact --no-banner
+
+# Behaviour of these packages is specified in docs/specs (ADR 0009). Changing them without
+# touching a spec is usually spec rot — a warning, not a block, since not every change to
+# them alters behaviour.
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+guarded=$(echo "$staged" | grep -E '^internal/(eval|silence|state|schema|api)/' || true)
+specs=$(echo "$staged" | grep -E '^docs/specs/' | grep -v 'TEMPLATE.md' || true)
+if [ -n "$guarded" ] && [ -z "$specs" ]; then
+	echo "pre-commit: warning — specified packages changed, no spec touched:" >&2
+	echo "$guarded" | sed 's/^/  /' >&2
+	echo "If behaviour changed, update docs/specs in this commit (ADR 0009)." >&2
+fi
