@@ -21,11 +21,14 @@ One decision per file, each stating what was rejected and why. New records start
 | [0002](decisions/0002-push-not-pull.md) | Agents push; the server never polls nodes | accepted |
 | [0003](decisions/0003-sensors-are-modules.md) | Sensors are in-process modules of the agent | accepted |
 | [0004](decisions/0004-two-binaries-monorepo.md) | Two artifacts — agent and monolithic hub — in one repository | accepted |
-| [0005](decisions/0005-poc-stack.md) | POC stack: Go, SQLite, server-side HTML | proposed |
+| [0005](decisions/0005-poc-stack.md) | POC stack: Go, SQLite, server-side HTML | accepted |
 | [0006](decisions/0006-alerting-rules.md) | Alert on transitions; only critical is instant | accepted |
 | [0007](decisions/0007-public-repository.md) | Public repository from the first commit; nothing personal in it | accepted |
 | [0008](decisions/0008-english-repo-bilingual-ui.md) | The repository is English; the interface is bilingual | accepted |
 | [0009](decisions/0009-development-process.md) | Specs for behaviour, plans for work, ADRs for decisions | accepted |
+| [0010](decisions/0010-agent-configuration.md) | The agent's configuration lives on the hub and arrives in the ingest response | accepted |
+| [0011](decisions/0011-quality-gates.md) | Quality is enforced by tooling, not by attention | accepted |
+| [0012](decisions/0012-threshold-model.md) | Thresholds fire on whichever comes first — percentage or absolute headroom | accepted |
 
 ## Behaviour specs
 

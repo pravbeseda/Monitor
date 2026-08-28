@@ -159,8 +159,16 @@ Each line is an index into the ADR that owns it.
   travel and the event stream live outside them. → 0001
 - **Alerts fire on transitions** with hysteresis; critical is instant, warnings batch into a
   daily digest, unresolved critical repeats at most once a day. → 0006
-- **Proposed stack (still open)**: Go, SQLite behind a `Storage` interface, server-side
-  `html/template`, systemd/launchd, Caddy for TLS. → 0005
+- **Stack**: Go for both binaries, SQLite (`modernc.org/sqlite`, no CGO) behind a `Storage`
+  interface, server-side `html/template`, systemd/launchd, TLS terminated by the host's
+  nginx with the hub bound to localhost. → 0005
+- **The agent carries no configuration** beyond the hub address and its token: which sensors
+  run, how often and with which thresholds comes from the hub in the ingest response, layered
+  sensor default → node class → node → sensor or volume. → 0010
+- **Quality is machine-enforced**: `gofmt`, `go vet`, `golangci-lint` and `go test -race
+  -cover` gate every change in CI and pre-commit; a red check blocks the merge. → 0011
+- **Disk thresholds fire on whichever comes first**, a percentage or absolute headroom;
+  `role: backup` volumes use headroom only. → 0012
 - The versioned API prefix (`/api/v1/...`) is deliberate — keep it on every new endpoint.
 - The project's value is the normalization and prioritization layer, not storage or
   charting; weigh new low-level work against what off-the-shelf tools already do.
