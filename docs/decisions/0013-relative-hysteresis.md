@@ -48,7 +48,11 @@ prevents latching:
 |---|---|---|---|
 | 128 GB | 19 GB free (14.8%) | 23 GB free | the ratio clears at 18% |
 | 8 TB | 99 GB free (1.2%) | 120 GB free | the ceiling comparison clears first |
-| any | below 10 GB free | 12 GB free | the floor clears |
+
+The state ends when the **whole rule** stops holding, so clearing the floor alone does not
+end it: a 128 GB volume that fell below 10 GB is past the floor at 12 GB, but the band still
+holds there (9.4% and under 120 GB), and it leaves at 23 GB like any other 128 GB volume. The
+floor decides when a state *starts*, never on its own when it ends.
 
 Reading it as "every condition that put the state there must clear" is what latches a
 volume: a 128 GB disk would have to reach 120 GB free to clear a 100 GB ceiling, which is an

@@ -26,15 +26,12 @@ alert when   free < floor                          # threshold
 | warning | 10 GB | 15% | 100 GB |
 | critical | 4 GB | 7% | 40 GB |
 
-The floor says the volume is nearly full whatever its size; the ceiling keeps the
-proportional part from firing on a volume large enough that a small percentage is still a lot
-of space. Recovery negates this whole rule with a margin on every comparison, rather than
-clearing conditions one by one ([0013](0013-relative-hysteresis.md)).
-
 The floor catches any volume that is genuinely close to full, whatever its size. The band
 catches a volume running low proportionally, but only while its absolute headroom is small
 enough to matter — so an 8 TB volume with 1.2 TB free stays silent, a 128 GB volume with
-19 GB free warns, and any volume with 3 GB free is critical.
+19 GB free warns, and any volume with 3 GB free is critical. Recovery negates this whole rule
+with a margin on every comparison, rather than clearing conditions one by one
+([0013](0013-relative-hysteresis.md)).
 
 A disjunction alone cannot do this: OR can only make alerting more eager than percentages
 already were, which is the opposite of what large volumes need.
