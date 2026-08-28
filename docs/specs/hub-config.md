@@ -87,6 +87,7 @@ One row = one test. Anchors: `spec: hub-config.md#<heading>`.
 | a token shorter than 32 characters | startup error naming the variable |
 | two nodes sharing one `token_env` | startup error naming both nodes |
 | a node whose `class` is neither compiled in nor in the file | startup error naming node and class |
+| a class the file introduces without `silence_after` | startup error naming the class: a silence window is a deployment setting |
 | a duration that Go cannot parse, or that is zero or negative | startup error naming the key |
 | a sensor interval below `base_tick` | startup error: a sensor collects above the tick |
 | `filesystems` present and empty | startup error: no volume would ever be collected |
