@@ -1,0 +1,30 @@
+# Configuration and secrets — see docs/decisions/0007-public-repository.md.
+# Only *.example.yaml is versioned; the real files live on the server.
+config.yaml
+config.*.yaml
+!config.example.yaml
+*.env
+.env*
+*.token
+*.pem
+*.key
+
+# Measurements and their backups
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+data/
+backups/
+
+# Build output
+bin/
+dist/
+*.exe
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+.obsidian/

@@ -1,0 +1,23 @@
+#!/bin/sh
+# Enforces the privacy rules of docs/decisions/0007-public-repository.md.
+# Enabled by: git config core.hooksPath .githooks
+set -e
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+	echo "pre-commit: gitleaks is not installed." >&2
+	echo "  macOS:  brew install gitleaks" >&2
+	echo "  Debian: see https://github.com/gitleaks/gitleaks#installing" >&2
+	exit 1
+fi
+
+# Files that must never be committed, even with 'git add -f'.
+forbidden=$(git diff --cached --name-only --diff-filter=ACMR | grep -E \
+	'(^|/)config\.ya?ml$|(^|/)\.env|\.(db|sqlite3?|pem|key|token)$|(^|/)(data|backups)/' || true)
+if [ -n "$forbidden" ]; then
+	echo "pre-commit: these files hold configuration, secrets or measurements:" >&2
+	echo "$forbidden" | sed 's/^/  /' >&2
+	echo "They belong on the server, not in a public repository (ADR 0007)." >&2
+	exit 1
+fi
+
+gitleaks git --staged --redact --no-banner
