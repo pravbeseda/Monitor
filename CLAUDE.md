@@ -89,9 +89,10 @@ reported and continued without asking.
 3. **Plan.** A checklist of steps in the task; a document in `docs/plans/` only for
    stage-sized work. Steps, never behaviour. → **gate:** the plan is approved.
 4. **Branch.** Work on a branch off `main`. Never commit to `main`.
-5. **Implement, step by step, test-first.** Red → green → refactor per step; each behaviour
-   test carries a `spec:` anchor. Report after each step and keep going — never ask whether
-   to continue.
+5. **Implement, step by step, test-first.** Red → green → refactor per step. Every row of a
+   behaviour table the step touches gets a test, and that test cites the row with a `spec:`
+   anchor; work with no spec has no rows and no anchors. Report after each step and keep
+   going — never ask whether to continue.
 6. **Self-review.** Review the diff before showing it: simplicity, duplication, dead code,
    conformance to the spec and the plan, contradictions with the documentation. Fix what it
    finds and review again.
