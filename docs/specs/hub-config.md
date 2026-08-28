@@ -78,6 +78,8 @@ One row = one test. Anchors: `spec: hub-config.md#<heading>`.
 | Configuration | Result |
 |---|---|
 | `--config` not given | startup error: the path is a deployment setting and has no default |
+| `--db` not given | startup error: the database path is a deployment setting too |
+| `--listen` not given | the hub binds to `127.0.0.1:8080`, a product default that names no installation |
 | file missing or unreadable | startup error naming the path |
 | not valid YAML | startup error naming the path and the position |
 | a key the hub does not know, at any level | startup error naming the key |

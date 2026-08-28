@@ -1,36 +1,39 @@
 package main
 
 import (
-	"bytes"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
-// spec: hub-config.md#startup — the configuration path has no default.
-func TestConfigPathRequired(t *testing.T) {
-	_, err := configPath(nil)
+// spec: hub-config.md#startup — the deployment paths have no defaults.
+func TestParseFlagsRequiresDeploymentPaths(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"no flags at all", nil, "--config"},
+		{"a configuration but no database", []string{"--config", "config.yaml"}, "--db"},
+	}
 
-	if err == nil || !strings.Contains(err.Error(), "--config") {
-		t.Fatalf("error = %v, want it to name the missing flag", err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parseFlags(tc.args)
+
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want it to name %s", err, tc.want)
+			}
+		})
 	}
 }
 
-func TestRunReportsConfiguredNodes(t *testing.T) {
-	t.Setenv("MONITOR_TOKEN_LAPTOP_A", strings.Repeat("synthetic-", 4))
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	body := "nodes:\n  laptop-a:\n    class: laptop\n    token_env: MONITOR_TOKEN_LAPTOP_A\n"
-	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
+func TestParseFlagsDefaultsToLocalhost(t *testing.T) {
+	opts, err := parseFlags([]string{"--config", "config.yaml", "--db", "monitor.db"})
+	if err != nil {
+		t.Fatalf("parseFlags: %v", err)
 	}
 
-	var out bytes.Buffer
-	if err := run([]string{"--config", path}, &out); err != nil {
-		t.Fatalf("run: %v", err)
-	}
-
-	if !strings.Contains(out.String(), "1 node") {
-		t.Errorf("output = %q, want the number of configured nodes", out.String())
+	if !strings.HasPrefix(opts.listen, "127.0.0.1:") {
+		t.Errorf("listen = %q, want the hub bound to localhost (ADR 0005)", opts.listen)
 	}
 }

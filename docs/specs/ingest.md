@@ -141,6 +141,9 @@ One row = one test. Anchors: `spec: ingest.md#<heading>`.
 
 ## Edge cases
 
+- **Malformed and from the wrong node at once**: shape is checked before ownership, so
+  such a request answers 400 rather than 403. The 403 row describes a request that is
+  otherwise valid.
 - **Clock skew**: measurement `ts` is stored as sent; the hub separately records receipt
   time. A skewed agent clock corrupts history placement, never silence detection.
 - **Config changed while the agent was offline**: the next request carries the old

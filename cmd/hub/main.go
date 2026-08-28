@@ -6,11 +6,18 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/pravbeseda/Monitor/internal/config"
+	"github.com/pravbeseda/Monitor/internal/hub"
+	"github.com/pravbeseda/Monitor/internal/storage"
 	"github.com/pravbeseda/Monitor/internal/version"
 )
+
+// readHeaderTimeout keeps a stalled client from holding a connection open forever.
+const readHeaderTimeout = 10 * time.Second
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
@@ -19,31 +26,64 @@ func main() {
 	}
 }
 
+// options are the deployment settings the hub needs; only the listen address has a
+// product default, because binding to localhost says nothing about an installation.
+type options struct {
+	config string
+	db     string
+	listen string
+}
+
 func run(args []string, out io.Writer) error {
-	path, err := configPath(args)
+	opts, err := parseFlags(args)
 	if err != nil {
 		return err
 	}
-	cfg, err := config.Load(path)
+	cfg, err := config.Load(opts.config)
 	if err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(out, "monitor-hub %s: %d nodes configured\n", version.Current, len(cfg.Nodes())); err != nil {
+	store, err := storage.OpenSQLite(opts.db)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := store.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "hub: %v\n", err)
+		}
+	}()
+
+	if _, err := fmt.Fprintf(out, "monitor-hub %s: %d nodes configured, listening on %s\n",
+		version.Current, len(cfg.Nodes()), opts.listen); err != nil {
 		return fmt.Errorf("write to stdout: %w", err)
+	}
+
+	server := &http.Server{
+		Addr:              opts.listen,
+		Handler:           hub.Routes(cfg, store, time.Now),
+		ReadHeaderTimeout: readHeaderTimeout,
+	}
+	if err := server.ListenAndServe(); err != nil {
+		return fmt.Errorf("serve on %s: %w", opts.listen, err)
 	}
 	return nil
 }
 
-// configPath reads --config, which is a deployment setting and therefore has no default.
-func configPath(args []string) (string, error) {
+func parseFlags(args []string) (options, error) {
 	flags := flag.NewFlagSet("hub", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	path := flags.String("config", "", "path to the hub's YAML configuration")
+	var opts options
+	flags.StringVar(&opts.config, "config", "", "path to the hub's YAML configuration")
+	flags.StringVar(&opts.db, "db", "", "path to the SQLite database")
+	flags.StringVar(&opts.listen, "listen", "127.0.0.1:8080", "address to serve on")
 	if err := flags.Parse(args); err != nil {
-		return "", fmt.Errorf("parse flags: %w", err)
+		return options{}, fmt.Errorf("parse flags: %w", err)
 	}
-	if *path == "" {
-		return "", errors.New("--config is required: the configuration path has no default")
+	if opts.config == "" {
+		return options{}, errors.New("--config is required: the configuration path has no default")
 	}
-	return *path, nil
+	if opts.db == "" {
+		return options{}, errors.New("--db is required: the database path has no default")
+	}
+	return opts, nil
 }
