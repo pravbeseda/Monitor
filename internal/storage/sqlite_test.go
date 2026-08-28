@@ -160,3 +160,70 @@ func TestOpenSQLiteEnablesWAL(t *testing.T) {
 		t.Errorf("journal_mode = %q, want wal", mode)
 	}
 }
+
+// States feeds the web page: the latest value of every series plus each node's last-seen.
+func TestStatesReturnsTheLatestValueOfEachSeries(t *testing.T) {
+	db := open(t)
+	first := time.Date(2026, 8, 28, 10, 0, 5, 0, time.UTC)
+	older := Measurement{Metric: "disk.free_bytes", Labels: map[string]string{"mount": "/"}, Value: 500, TS: collected}
+	newer := Measurement{Metric: "disk.free_bytes", Labels: map[string]string{"mount": "/"}, Value: 400, TS: collected.Add(time.Hour)}
+
+	if err := db.SaveIngest(context.Background(), ingest("laptop-a", first, older, newer, free("/data", 900))); err != nil {
+		t.Fatalf("SaveIngest: %v", err)
+	}
+
+	states, err := db.States(context.Background())
+	if err != nil {
+		t.Fatalf("States: %v", err)
+	}
+	if len(states) != 1 || states[0].Node != "laptop-a" {
+		t.Fatalf("states = %+v, want one node", states)
+	}
+	if !states[0].LastSeen.Equal(first) {
+		t.Errorf("last-seen = %v, want %v", states[0].LastSeen, first)
+	}
+	if len(states[0].Values) != 2 {
+		t.Fatalf("values = %+v, want one per series", states[0].Values)
+	}
+	for _, value := range states[0].Values {
+		if value.Labels["mount"] == "/" && value.Value != 400 {
+			t.Errorf("value on / = %v, want the newest 400", value.Value)
+		}
+	}
+}
+
+func TestStatesIncludesANodeThatSentNoMeasurements(t *testing.T) {
+	db := open(t)
+	received := time.Date(2026, 8, 28, 10, 0, 5, 0, time.UTC)
+
+	if err := db.SaveIngest(context.Background(), ingest("server-b", received)); err != nil {
+		t.Fatalf("SaveIngest: %v", err)
+	}
+
+	states, err := db.States(context.Background())
+	if err != nil {
+		t.Fatalf("States: %v", err)
+	}
+	if len(states) != 1 || len(states[0].Values) != 0 {
+		t.Errorf("states = %+v, want the node with no values", states)
+	}
+}
+
+func TestStatesOrdersNodesByName(t *testing.T) {
+	db := open(t)
+	received := time.Date(2026, 8, 28, 10, 0, 5, 0, time.UTC)
+	for _, node := range []string{"server-b", "laptop-a"} {
+		if err := db.SaveIngest(context.Background(), ingest(node, received, free("/", 1))); err != nil {
+			t.Fatalf("SaveIngest %s: %v", node, err)
+		}
+	}
+
+	states, err := db.States(context.Background())
+	if err != nil {
+		t.Fatalf("States: %v", err)
+	}
+
+	if len(states) != 2 || states[0].Node != "laptop-a" || states[1].Node != "server-b" {
+		t.Errorf("states = %+v, want them ordered by name", states)
+	}
+}

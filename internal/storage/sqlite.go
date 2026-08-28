@@ -104,6 +104,89 @@ func (s *SQLite) SaveIngest(ctx context.Context, in Ingest) (err error) {
 	return nil
 }
 
+// States reads what the web page shows: one entry per node, latest value per series.
+func (s *SQLite) States(ctx context.Context) ([]NodeState, error) {
+	states, order, err := s.nodeStates(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.attachLatestValues(ctx, states); err != nil {
+		return nil, err
+	}
+
+	out := make([]NodeState, 0, len(order))
+	for _, node := range order {
+		out = append(out, *states[node])
+	}
+	return out, nil
+}
+
+func (s *SQLite) nodeStates(ctx context.Context) (map[string]*NodeState, []string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT node, last_seen FROM nodes ORDER BY node`)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read nodes: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	states := map[string]*NodeState{}
+	var order []string
+	for rows.Next() {
+		var node, lastSeen string
+		if err := rows.Scan(&node, &lastSeen); err != nil {
+			return nil, nil, fmt.Errorf("read nodes: %w", err)
+		}
+		seen, err := parseTime(lastSeen)
+		if err != nil {
+			return nil, nil, fmt.Errorf("node %s: %w", node, err)
+		}
+		states[node] = &NodeState{Node: node, LastSeen: seen}
+		order = append(order, node)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("read nodes: %w", err)
+	}
+	return states, order, nil
+}
+
+// attachLatestValues keeps one row per series: the newest ts wins.
+func (s *SQLite) attachLatestValues(ctx context.Context, states map[string]*NodeState) error {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT node, metric, labels, ts, value FROM (
+			SELECT node, metric, labels, ts, value,
+			       ROW_NUMBER() OVER (PARTITION BY node, metric, labels ORDER BY ts DESC) AS recency
+			FROM measurements)
+		WHERE recency = 1
+		ORDER BY node, metric, labels`)
+	if err != nil {
+		return fmt.Errorf("read measurements: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var node, metric, labels, ts string
+		var value Value
+		if err := rows.Scan(&node, &metric, &labels, &ts, &value.Value); err != nil {
+			return fmt.Errorf("read measurements: %w", err)
+		}
+		state, known := states[node]
+		if !known {
+			continue
+		}
+		value.Metric = metric
+		if err := json.Unmarshal([]byte(labels), &value.Labels); err != nil {
+			return fmt.Errorf("node %s: decode labels: %w", node, err)
+		}
+		if value.TS, err = parseTime(ts); err != nil {
+			return fmt.Errorf("node %s: %w", node, err)
+		}
+		state.Values = append(state.Values, value)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("read measurements: %w", err)
+	}
+	return nil
+}
+
 // Close releases the database handle.
 func (s *SQLite) Close() error {
 	if err := s.db.Close(); err != nil {

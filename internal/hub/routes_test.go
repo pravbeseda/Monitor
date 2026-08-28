@@ -17,8 +17,9 @@ import (
 
 type discard struct{}
 
-func (discard) SaveIngest(context.Context, storage.Ingest) error { return nil }
-func (discard) Close() error                                     { return nil }
+func (discard) SaveIngest(context.Context, storage.Ingest) error    { return nil }
+func (discard) States(context.Context) ([]storage.NodeState, error) { return nil, nil }
+func (discard) Close() error                                        { return nil }
 
 func routes(t *testing.T) http.Handler {
 	t.Helper()
