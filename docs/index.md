@@ -25,6 +25,18 @@ One decision per file, each stating what was rejected and why. New records start
 | [0006](decisions/0006-alerting-rules.md) | Alert on transitions; only critical is instant | accepted |
 | [0007](decisions/0007-public-repository.md) | Public repository from the first commit; nothing personal in it | accepted |
 | [0008](decisions/0008-english-repo-bilingual-ui.md) | The repository is English; the interface is bilingual | accepted |
+| [0009](decisions/0009-development-process.md) | Specs for behaviour, plans for work, ADRs for decisions | accepted |
+
+## Behaviour specs
+
+How subsystems behave, one file per subsystem, each built around a behaviour table that
+tests are derived from. Required for contracts, stateful algorithms and multi-session work
+(see [ADR 0009](decisions/0009-development-process.md)); new specs start from
+[TEMPLATE.md](specs/TEMPLATE.md).
+
+| Spec | Owns | Status |
+|---|---|---|
+| _none yet_ | | |
 
 ## Design notes
 
@@ -37,8 +49,9 @@ Reasoning from working sessions, including options that were rejected.
 ## Not written yet
 
 - `docs/architecture/` — subsystem documents arrive with the code. Until then the
-  architecture fits in [concept.md](concept.md) and the ADRs, and duplicating it would
-  create a second source of truth.
+  architecture fits in [concept.md](concept.md), the ADRs and the specs, and duplicating it
+  would create a second source of truth.
+- `docs/plans/` — stage-sized plans; created with the first one.
 - Install and deployment guide — after POC stage 1.
 
 ## Open questions

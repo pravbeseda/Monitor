@@ -21,6 +21,8 @@ docs/index.md              map of all documentation — the entry point
 docs/concept.md            product concept, principles, roadmap
 docs/poc.md                POC spec, wire format, work plan, open questions
 docs/decisions/NNNN-*.md   ADRs, one decision per file (TEMPLATE.md is the skeleton)
+docs/specs/<subsystem>.md  behaviour specs: the table each test derives from
+docs/plans/                stage-sized plans only; smaller plans live in the task
 docs/log/YYYY-MM-DD-*.md   design notes: reasoning that did not fit the final documents
 ```
 
@@ -72,6 +74,50 @@ Per [ADR 0008](docs/decisions/0008-english-repo-bilingual-ui.md):
   usage site; strings come from a catalogue keyed by an English identifier, and locale
   governs number, date and byte-size formatting too.
 - Log lines and CLI output stay English: they are diagnostic and end up in bug reports.
+
+## Development process (mandatory)
+
+Per [ADR 0009](docs/decisions/0009-development-process.md). Every unit of work runs through
+these stages in order. Stages marked **gate** stop and wait for the user; the rest are
+reported and continued without asking.
+
+1. **Scope.** Restate the task, name the assumptions, ask the blocking questions one at a
+   time. → **gate:** no unanswered blocking question remains.
+2. **Spec.** Write or update `docs/specs/<subsystem>.md` when the work spans more than one
+   session, touches a contract, or is an algorithm with state. Skip it, saying so, when none
+   of those hold. → **gate:** the behaviour table is approved.
+3. **Plan.** A checklist of steps in the task; a document in `docs/plans/` only for
+   stage-sized work. Steps, never behaviour. → **gate:** the plan is approved.
+4. **Branch.** Work on a branch off `main`. Never commit to `main`.
+5. **Implement, step by step, test-first.** Red → green → refactor per step. Every row of a
+   behaviour table the step touches gets a test, and that test cites the row with a `spec:`
+   anchor; work with no spec has no rows and no anchors. Report after each step and keep
+   going — never ask whether to continue.
+6. **Self-review.** Review the diff before showing it: simplicity, duplication, dead code,
+   conformance to the spec and the plan, contradictions with the documentation. Fix what it
+   finds and review again.
+7. **Documentation.** Update the spec, ADRs and `docs/index.md`; report which documents were
+   touched.
+8. **Pull request.** → **gate:** never opened without explicit permission for that PR.
+9. **Merge.** → **gate:** only on the user's explicit instruction.
+
+**Definition of done** for any unit of work: tests pass, every behaviour-table row that the
+change touches has a test, the spec matches the code, the documentation was updated, and the
+self-review was run.
+
+### Holding the line
+
+The user has asked to be kept on this process. When a step would skip a stage — coding
+before an approved spec, committing to `main`, opening a PR unasked, leaving a spec stale:
+
+1. Say plainly which stage is being skipped and what it protects, in one or two sentences.
+2. Offer the shortest legitimate path — usually "the behaviour table takes five minutes,
+   then I implement".
+3. If the user confirms anyway, do it: it is their project. Record the skip in the task or
+   the PR description, so it is visible rather than forgotten.
+
+Say it once per occurrence. Repeating an objection the user has already overruled is noise,
+not diligence.
 
 ## Documentation duties (mandatory)
 
