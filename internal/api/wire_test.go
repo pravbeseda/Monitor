@@ -1,8 +1,10 @@
-package ingest
+package api_test
 
 import (
 	"testing"
 	"time"
+
+	"github.com/pravbeseda/Monitor/internal/api"
 )
 
 func TestFormatDuration(t *testing.T) {
@@ -14,8 +16,8 @@ func TestFormatDuration(t *testing.T) {
 	}
 
 	for d, want := range tests {
-		if got := formatDuration(d); got != want {
-			t.Errorf("formatDuration(%v) = %q, want %q", d, got, want)
+		if got := api.FormatDuration(d); got != want {
+			t.Errorf("FormatDuration(%v) = %q, want %q", d, got, want)
 		}
 	}
 }

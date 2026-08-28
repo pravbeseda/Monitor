@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pravbeseda/Monitor/internal/api"
 	"github.com/pravbeseda/Monitor/internal/config"
 	"github.com/pravbeseda/Monitor/internal/storage"
 )
@@ -69,9 +70,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body := response{}
+	body := api.Response{}
 	if req.ConfigVersion != node.Version {
-		body = response{ConfigVersion: node.Version, Config: deliver(node.Agent)}
+		body = api.Response{ConfigVersion: node.Version, Config: api.Deliver(node.Agent)}
 	}
 	write(w, http.StatusOK, body)
 }
@@ -92,23 +93,23 @@ func (h *Handler) authenticate(r *http.Request) (config.Node, bool) {
 	return config.Node{}, false
 }
 
-func decode(w http.ResponseWriter, r *http.Request) (request, int, error) {
+func decode(w http.ResponseWriter, r *http.Request) (api.Request, int, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 
-	var req request
+	var req api.Request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			return request{}, http.StatusRequestEntityTooLarge, fmt.Errorf("body larger than %d bytes", maxBodyBytes)
+			return api.Request{}, http.StatusRequestEntityTooLarge, fmt.Errorf("body larger than %d bytes", maxBodyBytes)
 		}
-		return request{}, http.StatusBadRequest, fmt.Errorf("body is not valid JSON: %w", err)
+		return api.Request{}, http.StatusBadRequest, fmt.Errorf("body is not valid JSON: %w", err)
 	}
 	return req, http.StatusOK, nil
 }
 
 // validate turns a request into what storage takes, or refuses the whole batch: one bad
 // measurement rejects every measurement beside it.
-func validate(req request, received time.Time) (storage.Ingest, error) {
+func validate(req api.Request, received time.Time) (storage.Ingest, error) {
 	if req.Node == "" {
 		return storage.Ingest{}, errors.New("node is required")
 	}
@@ -141,7 +142,7 @@ func validate(req request, received time.Time) (storage.Ingest, error) {
 	return in, nil
 }
 
-func validateMeasurement(m measurement, sent time.Time) (storage.Measurement, error) {
+func validateMeasurement(m api.Measurement, sent time.Time) (storage.Measurement, error) {
 	if !metricID.MatchString(m.Metric) {
 		return storage.Measurement{}, fmt.Errorf("metric %q is not an id of [a-z0-9_.]", m.Metric)
 	}
@@ -171,7 +172,7 @@ func timestamp(key, value string) (time.Time, error) {
 }
 
 func fail(w http.ResponseWriter, status int, message string) {
-	write(w, status, errorBody{Error: message})
+	write(w, status, api.ErrorBody{Error: message})
 }
 
 func write(w http.ResponseWriter, status int, body any) {
