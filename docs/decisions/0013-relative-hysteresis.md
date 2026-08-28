@@ -31,21 +31,28 @@ The margin is a property of the threshold, not of the unit, so it applies unchan
 metric the system will ever carry. For percentage thresholds it reproduces what 0006
 prescribed, so nothing about existing behaviour changes.
 
-**The margin applies to thresholds, not to guards.** A compound rule
-([0012](0012-threshold-model.md)) mixes two kinds of condition, and only one of them
-oscillates around "bad":
+**Recovery is the negation of the entry rule, with every comparison shifted by the margin.**
+A compound rule ([0012](0012-threshold-model.md)) is not cleared condition by condition: the
+state ends when the rule itself stops holding, and negating a conjunction gives a
+disjunction.
 
-- a **threshold** asks whether the value is bad now — the floor and the ratio. It carries the
-  margin.
-- a **guard** asks whether the rule applies to this volume at all — the ceiling. It is
-  evaluated as written, with no margin.
+```
+enters when   free < 10 GB   or  (free% < 15  and  free < 100 GB)
+leaves when   free >= 12 GB  and (free% >= 18  or  free >= 120 GB)
+```
 
-Giving a guard a margin latches the state: a 128 GB volume warning at 19 GB free would need
-120 GB free to clear a 100 GB ceiling, which is an almost empty disk. With the split it
-returns to ok at 18% — about 23 GB — while an 8 TB volume never enters the rule, because its
-guard is false from the start.
+Every comparison keeps its own 20% margin, so nothing can flap, and the disjunction is what
+prevents latching:
 
-The state leaves a severity when every threshold that put it there has cleared its margin.
+| Volume | Enters warning at | Leaves at | Why |
+|---|---|---|---|
+| 128 GB | 19 GB free (14.8%) | 23 GB free | the ratio clears at 18% |
+| 8 TB | 99 GB free (1.2%) | 120 GB free | the ceiling comparison clears first |
+| any | below 10 GB free | 12 GB free | the floor clears |
+
+Reading it as "every condition that put the state there must clear" is what latches a
+volume: a 128 GB disk would have to reach 120 GB free to clear a 100 GB ceiling, which is an
+almost empty disk.
 
 ## Consequences
 

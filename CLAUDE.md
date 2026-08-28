@@ -163,8 +163,8 @@ Each line is an index into the ADR that owns it.
   travel and the event stream live outside them. → 0001
 - **Alerts fire on transitions** with hysteresis; critical is instant, warnings batch into a
   daily digest, unresolved critical repeats at most once a day. → 0006
-- **Hysteresis is relative**: a state recovers only once the value clears its threshold by
-  20% of that threshold, whatever the unit. → 0013
+- **Hysteresis is relative**: recovery is the negated entry rule with every comparison
+  shifted by 20% of its threshold, whatever the unit. → 0013
 - **Stack**: Go for both binaries, SQLite (`modernc.org/sqlite`, no CGO) behind a `Storage`
   interface, server-side `html/template`, systemd/launchd, TLS terminated by the host's
   nginx with the hub bound to localhost. → 0005

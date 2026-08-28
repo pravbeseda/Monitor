@@ -26,10 +26,10 @@ alert when   free < floor                          # threshold
 | warning | 10 GB | 15% | 100 GB |
 | critical | 4 GB | 7% | 40 GB |
 
-The floor and the ratio are **thresholds** — they say the value is bad. The ceiling is a
-**guard**: it says nothing about health, only whether the proportional rule applies to a
-volume of this size. The distinction matters for recovery, where a margin belongs to
-thresholds alone ([0013](0013-relative-hysteresis.md)).
+The floor says the volume is nearly full whatever its size; the ceiling keeps the
+proportional part from firing on a volume large enough that a small percentage is still a lot
+of space. Recovery negates this whole rule with a margin on every comparison, rather than
+clearing conditions one by one ([0013](0013-relative-hysteresis.md)).
 
 The floor catches any volume that is genuinely close to full, whatever its size. The band
 catches a volume running low proportionally, but only while its absolute headroom is small
@@ -53,10 +53,11 @@ the hub has not seen takes the defaults until it is given its own.
   the shape thresholds take in general, not a special case for disks.
 - Both `disk.free_pct` and `disk.free_bytes` are collected, as the wire format already has
   them — neither can be dropped as redundant.
-- Hysteresis applies per condition, with the relative margin of
-  [0013](0013-relative-hysteresis.md): a volume leaves a severity only once every condition
-  that put it there has cleared its threshold by 20%. Absolute headroom is what flaps in
-  practice — logs rotate, caches grow and shrink — so this is not a theoretical case.
+- Recovery is the negated rule with a 20% margin on every comparison
+  ([0013](0013-relative-hysteresis.md)), not a per-condition clearance: a 128 GB volume
+  leaves warning at 23 GB free through the ratio, an 8 TB volume at 120 GB free through the
+  ceiling. Absolute headroom is what flaps in practice — logs rotate, caches grow and shrink
+  — so the margin on every comparison is not a theoretical nicety.
 - Forecast-based alerting ("full in ~12 days") is a later addition on top of these
   thresholds, once history is long enough — not a replacement.
 
