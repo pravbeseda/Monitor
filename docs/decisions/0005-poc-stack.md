@@ -14,7 +14,9 @@ dependencies. The hub serves a handful of nodes at minute intervals.
 - **Go** for both binaries: a single static binary, cross-compilation with one command, and
   `gopsutil` covering disks, CPU and memory on every target OS.
 - **SQLite** for storage (one `measurements` table, WAL) behind a `Storage` interface, with
-  the pure-Go `modernc.org/sqlite` driver so cross-compilation needs no C toolchain.
+  the pure-Go `modernc.org/sqlite` driver so cross-compilation needs no C toolchain. WAL means
+  backups use SQLite's own online backup (`.backup` / `VACUUM INTO`), never a file copy: the
+  latest transactions sit in the `-wal` file and copying the database alone can lose them.
 - **Server-side HTML** (`html/template`), one page, no SPA and no frontend build.
 - **HTTPS + JSON**, version in the path from the first commit (`/api/v1/ingest`).
 - **Deployment**: systemd on Debian, launchd on macOS. TLS terminates at the nginx already

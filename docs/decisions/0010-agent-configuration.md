@@ -2,7 +2,7 @@
 
 - **Status:** accepted
 - **Date:** 2026-08-28
-- **Source:** [POC](../poc.md) open questions 3 and 5
+- **Source:** [POC](../poc.md) questions 3 and 5
 
 ## Context
 

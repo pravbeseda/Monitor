@@ -8,7 +8,7 @@ entry point to every document in the project.
 | Document | Contents |
 |---|---|
 | [concept.md](concept.md) | Idea, architectural principles, planned skins, domains, roadmap |
-| [poc.md](poc.md) | POC spec: scope, terminology, wire format, work plan, open questions |
+| [poc.md](poc.md) | POC spec: scope, terminology, wire format, work plan, answered questions |
 
 ## Architecture decisions
 
@@ -28,7 +28,8 @@ One decision per file, each stating what was rejected and why. New records start
 | [0009](decisions/0009-development-process.md) | Specs for behaviour, plans for work, ADRs for decisions | accepted |
 | [0010](decisions/0010-agent-configuration.md) | The agent's configuration lives on the hub and arrives in the ingest response | accepted |
 | [0011](decisions/0011-quality-gates.md) | Quality is enforced by tooling, not by attention | accepted |
-| [0012](decisions/0012-threshold-model.md) | Thresholds fire on whichever comes first — percentage or absolute headroom | accepted |
+| [0012](decisions/0012-threshold-model.md) | Disk thresholds are a floor plus a proportional band | accepted |
+| [0013](decisions/0013-relative-hysteresis.md) | Hysteresis is a relative margin, not a fixed number of points | accepted |
 
 ## Behaviour specs
 

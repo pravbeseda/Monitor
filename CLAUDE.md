@@ -19,7 +19,7 @@ before re-opening a settled question.
 ```
 docs/index.md              map of all documentation — the entry point
 docs/concept.md            product concept, principles, roadmap
-docs/poc.md                POC spec, wire format, work plan, open questions
+docs/poc.md                POC spec, wire format, work plan, answered questions
 docs/decisions/NNNN-*.md   ADRs, one decision per file (TEMPLATE.md is the skeleton)
 docs/specs/<subsystem>.md  behaviour specs: the table each test derives from
 docs/plans/                stage-sized plans only; smaller plans live in the task
@@ -36,12 +36,15 @@ Per [ADR 0007](docs/decisions/0007-public-repository.md), the repository is publ
 first commit and contains **tooling only**. Configuration, secrets and measurements live on
 the server. Publishing history is irreversible, so these rules bind every commit:
 
-1. **Never commit** real node names, real thresholds, real domains or addresses, exported
-   health or finance data, fixtures built from real exports, database dumps, screenshots of
-   a live dashboard, or log excerpts containing mount points or node names. The same rule
-   covers commit messages, issues and pull requests.
-2. **No configuration defaults in code.** Missing configuration is a clear startup error,
-   never a "reasonable value". A default is how a personal setting leaks into the tool.
+1. **Never commit** real node names, real domains or addresses, thresholds tied to a named
+   host or volume, exported health or finance data, fixtures built from real exports,
+   database dumps, screenshots of a live dashboard, or log excerpts containing mount points
+   or node names. The same rule covers commit messages, issues and pull requests.
+2. **Product defaults may ship; deployment settings may not.** Thresholds, intervals and
+   sensor profiles describe how the tool behaves out of the box and belong in the repository.
+   Hub address, tokens, node names and classes, chat ids and any host- or volume-specific
+   override have no defaults: missing configuration is a clear startup error, never a
+   "reasonable value". The test is whether the value says something about *an installation*.
 3. **Examples and fixtures are synthetic** — invented names (`laptop-a`, `server-b`), round
    numbers, generated data. Never a real export, not even temporarily.
 4. **Secrets never enter a file in the tree**, including example configs: they come from an
@@ -85,7 +88,8 @@ reported and continued without asking.
    time. → **gate:** no unanswered blocking question remains.
 2. **Spec.** Write or update `docs/specs/<subsystem>.md` when the work spans more than one
    session, touches a contract, or is an algorithm with state. Skip it, saying so, when none
-   of those hold. → **gate:** the behaviour table is approved.
+   of those hold. The gate is on writing the code, not on deciding the approach: an ADR may
+   be accepted before its subsystem has a spec. → **gate:** the behaviour table is approved.
 3. **Plan.** A checklist of steps in the task; a document in `docs/plans/` only for
    stage-sized work. Steps, never behaviour. → **gate:** the plan is approved.
 4. **Branch.** Work on a branch off `main`. Never commit to `main`.
@@ -159,16 +163,20 @@ Each line is an index into the ADR that owns it.
   travel and the event stream live outside them. → 0001
 - **Alerts fire on transitions** with hysteresis; critical is instant, warnings batch into a
   daily digest, unresolved critical repeats at most once a day. → 0006
+- **Hysteresis is relative**: a state recovers only once the value clears its threshold by
+  20% of that threshold, whatever the unit. → 0013
 - **Stack**: Go for both binaries, SQLite (`modernc.org/sqlite`, no CGO) behind a `Storage`
   interface, server-side `html/template`, systemd/launchd, TLS terminated by the host's
   nginx with the hub bound to localhost. → 0005
 - **The agent carries no configuration** beyond the hub address and its token: which sensors
   run, how often and with which thresholds comes from the hub in the ingest response, layered
   sensor default → node class → node → sensor or volume. → 0010
-- **Quality is machine-enforced**: `gofmt`, `go vet`, `golangci-lint` and `go test -race
-  -cover` gate every change in CI and pre-commit; a red check blocks the merge. → 0011
-- **Disk thresholds fire on whichever comes first**, a percentage or absolute headroom;
-  `role: backup` volumes use headroom only. → 0012
+- **Quality is machine-enforced**: CI runs `gofmt`, `go vet`, `golangci-lint` and
+  `go test -race -cover`, and a red check blocks the merge; the pre-commit hook runs the fast
+  pair (`gofmt`, `go vet`). → 0011
+- **Disk thresholds are a floor plus a band**: alert below the floor, or below the ratio
+  while absolute headroom is under the ceiling; `role: backup` volumes use headroom only.
+  → 0012
 - The versioned API prefix (`/api/v1/...`) is deliberate — keep it on every new endpoint.
 - The project's value is the normalization and prioritization layer, not storage or
   charting; weigh new low-level work against what off-the-shelf tools already do.

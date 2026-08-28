@@ -2,7 +2,7 @@
 
 - **Status:** accepted
 - **Date:** 2026-08-28
-- **Source:** [POC](../poc.md) open question 1
+- **Source:** [POC](../poc.md) question 1
 
 ## Context
 
@@ -13,25 +13,28 @@ mandatory, not a matter of reviewer diligence.
 
 ## Decision
 
-Four checks gate every change, in CI and in the pre-commit hook:
+Four checks gate every change. **CI runs all four and a red one blocks the merge**; the
+pre-commit hook runs the fast pair (`gofmt`, `go vet`) so the local loop stays quick:
 
-| Check | Catches |
-|---|---|
-| `gofmt -l` (empty output required) | formatting drift — Go has one canonical style, so this is not a preference |
-| `go vet` | constructs that compile and misbehave |
-| `golangci-lint` | `errcheck`, `staticcheck`, `ineffassign`, `gocritic`, `revive` |
-| `go test -race -cover` | failing tests and data races in the agent's concurrent collection |
+| Check | Where | Catches |
+|---|---|---|
+| `gofmt -l` (empty output required) | hook + CI | formatting drift — Go has one canonical style, so this is not a preference |
+| `go vet` | hook + CI | constructs that compile and misbehave |
+| `golangci-lint` | CI | `errcheck`, `staticcheck`, `ineffassign`, `gocritic`, `revive` |
+| `go test -race -cover` | CI | failing tests and data races in the agent's concurrent collection |
 
-A red check blocks the merge. `errcheck` earns its place explicitly: an ignored error is the
-most common way to write code that fails silently, which is the failure mode this project
-exists to detect in others.
+The guarantee belongs at the boundary of `main`, not at the boundary of a local commit: a
+branch may hold broken work, a merge may not. A hook slow enough to invite `--no-verify` is
+worse than a fast one, because a bypassed hook is invisible while a red pipeline is not.
+
+`errcheck` earns its place explicitly: an ignored error is the most common way to write code
+that fails silently, which is the failure mode this project exists to detect in others.
 
 ## Consequences
 
 - The author's review is the behaviour table and a green pipeline, not the syntax.
 - A pull request is not ready while any check is red; nothing is merged past it.
-- The pre-commit hook grows a fast subset (`gofmt`, `go vet`) so the loop stays quick, with
-  the full set running in CI.
+- Committing to a branch with a failing test is allowed; merging with one is not.
 - These gates arrive with the first Go code, not before it: there is nothing to check yet.
 
 ## Alternatives

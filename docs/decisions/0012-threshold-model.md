@@ -1,8 +1,8 @@
-# 0012. Thresholds fire on whichever comes first — percentage or absolute headroom
+# 0012. Disk thresholds are a floor plus a proportional band
 
 - **Status:** accepted
 - **Date:** 2026-08-28
-- **Source:** [POC](../poc.md) open question 4
+- **Source:** [POC](../poc.md) question 4
 
 ## Context
 
@@ -13,12 +13,26 @@ they sit nearly full by design and would alert forever.
 
 ## Decision
 
-A disk threshold is a pair, and the state changes when **either** side is crossed:
+A disk threshold is a floor plus a band, so the rule adapts to the size of the volume
+instead of needing an exception per volume:
 
-| Level | Condition |
-|---|---|
-| warning | free below 15% **or** below 20 GB |
-| critical | free below 7% **or** below 5 GB |
+```
+alert when   free < floor
+      or     (free% < ratio  and  free < ceiling)
+```
+
+| Level | Floor | Ratio | Ceiling |
+|---|---|---|---|
+| warning | 10 GB | 15% | 100 GB |
+| critical | 4 GB | 7% | 40 GB |
+
+The floor catches any volume that is genuinely close to full, whatever its size. The band
+catches a volume running low proportionally, but only while its absolute headroom is small
+enough to matter — so an 8 TB volume with 1.2 TB free stays silent, a 128 GB volume with
+19 GB free warns, and any volume with 3 GB free is critical.
+
+A disjunction alone cannot do this: OR can only make alerting more eager than percentages
+already were, which is the opposite of what large volumes need.
 
 **Volume roles carry their own rule.** A volume declared `role: backup` drops percentages
 entirely and keeps absolute headroom (warning below 50 GB, critical below 10 GB), because a
@@ -30,12 +44,14 @@ the hub has not seen takes the defaults until it is given its own.
 
 ## Consequences
 
-- The evaluation engine must support a disjunction of conditions per level; this is the
-  shape every future threshold takes, not a special case for disks.
+- The evaluation engine must support both `or` and `and` within one level's rule. That is
+  the shape thresholds take in general, not a special case for disks.
 - Both `disk.free_pct` and `disk.free_bytes` are collected, as the wire format already has
   them — neither can be dropped as redundant.
-- Hysteresis from [0006](0006-alerting-rules.md) applies per condition, so a volume sitting
-  on either boundary cannot flap.
+- Hysteresis applies per condition, with the relative margin of
+  [0013](0013-relative-hysteresis.md): a volume leaves a severity only once every condition
+  that put it there has cleared its threshold by 20%. Absolute headroom is what flaps in
+  practice — logs rotate, caches grow and shrink — so this is not a theoretical case.
 - Forecast-based alerting ("full in ~12 days") is a later addition on top of these
   thresholds, once history is long enough — not a replacement.
 
@@ -43,5 +59,10 @@ the hub has not seen takes the defaults until it is given its own.
 
 - **Percentages only, with a manual exception per large volume** — rejected: it needs a hand
   written rule for nearly every volume, which is a patch, not a model.
+- **Percentage or absolute headroom, whichever fires first** — rejected after review: a
+  disjunction is strictly more eager than percentages alone, so it leaves the large-volume
+  false positive it was meant to remove.
+- **Absolute limits only** — rejected: predictable, but it puts every volume back into manual
+  configuration.
 - **Forecasts instead of thresholds** — deferred: no history exists at stage 2, and a short
   series forecasts badly.

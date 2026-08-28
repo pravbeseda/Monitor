@@ -1,6 +1,7 @@
 # 0006. Alert on transitions; only critical is instant
 
-- **Status:** accepted
+- **Status:** accepted; the recovery margin is superseded by
+  [0013](0013-relative-hysteresis.md)
 - **Date:** 2026-08-28
 - **Source:** [concept](../concept.md), [POC](../poc.md)
 
