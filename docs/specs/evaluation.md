@@ -2,10 +2,10 @@
 
 - **Status:** approved
 - **Owns:** `internal/evaluate` (hub): the tick, thresholds, hysteresis, silence detection
-  and the `Notifier` boundary. The `states`, `events` and `meta` tables extend the schema
-  of `internal/storage`, which keeps owning persistence; the `rules`, `digest`, `notify`
-  and `volumes` keys are parsed and validated by `internal/config`, which keeps owning the
-  file, using the rule names `internal/evaluate` exports.
+  and the notification boundary. Persistence of levels, events and the digest mark stays
+  with `internal/storage`; the `rules`, `digest`, `notify` and `volumes` keys are parsed
+  and validated by `internal/config`, which keeps owning the file, using the rule names
+  `internal/evaluate` exports.
 - **Decisions:** [0001](../decisions/0001-semantic-core-and-skins.md),
   [0006](../decisions/0006-alerting-rules.md),
   [0007](../decisions/0007-public-repository.md),
@@ -49,9 +49,10 @@ leave L   when  free >= 1.2·floor(L)  and  (pct >= 1.2·ratio(L)  or  free >= 1
 ```
 
 The exit rule is the negation of the entry rule, never a per-condition clearance. Only
-`free` and `pct` are inputs, compared as `float64` over decimal bytes and percentage
-points, with each margin computed as `threshold × 1.2`; the size of the volume appears in
-the tables below to make the pairs plausible and is never read.
+`free` and `pct` are inputs, compared over decimal bytes and percentage points at full
+precision, with each margin computed as `threshold × 1.2`; a value exactly at a margin
+counts as cleared. The size of the volume appears in the tables below to make the pairs
+plausible and is never read.
 
 **A rule with no band** — a volume whose `role` is `backup` — keeps only the floor
 comparison on both sides. The absent band contributes `false` to the entry disjunction and
@@ -68,28 +69,25 @@ for L in [critical, warning]:
 -> ok
 ```
 
-The margin itself is compiled in at 20%. [0013](../decisions/0013-relative-hysteresis.md)
+The margin is 20% and no key changes it: a file naming one is refused as an unknown key
+([hub-config.md](hub-config.md#startup)). [0013](../decisions/0013-relative-hysteresis.md)
 allows a per-metric override for an inherently noisy metric; no metric needs one yet, so
 the key is deferred rather than shipped unused.
 
 ## The tick
 
-One pass, in this order, so that nothing depends on chance:
+Evaluation runs on its own schedule ([0015](../decisions/0015-evaluation-on-a-tick.md)),
+against one consistent view of the data taken at the instant it evaluates for: a
+measurement that arrives while a tick is running is evaluated by the next tick, never by
+half of this one. Within a tick a node's silence is decided before its other subjects, so a
+node that has just fallen silent has its subjects frozen in that same tick rather than the
+next. A level change is recorded before any message about it is sent. Messages and digest
+entries come out in a stable order: by node name, then by the subject's `mount` label.
 
-1. Read the snapshot: the resolved configuration, every node's `last_seen`, the newest
-   value of every series, every `states` row, and `meta.last_digest_at`.
-2. Evaluate each node in name order. Within a node the `silence` subject is decided first,
-   because freezing depends on it, then the node's other subjects in `mount` order.
-3. Write each level change — `states` plus one `events` row — and commit it.
-4. Deliver: instant messages for the transitions of
-   [0016](../decisions/0016-leaving-critical-is-instant.md) and undelivered ones left over
-   from an earlier tick, then the digest if one is due.
-5. Record what was delivered.
-
-The tick takes the current time as a parameter and never reads the wall clock itself, so
-every time-dependent row below is a test. Ticks never overlap: a tick that fires while the
-previous one is still running is skipped and the skip is logged. Every notifier call is
-bounded by a 10s timeout, so a stalled channel cannot hold the loop.
+Two ticks never run at once: a tick that would start while the previous one is still
+running is skipped, and the skip is logged. A notifier that does not return cannot hold
+evaluation open — the send is abandoned, counted as a failure, and the event is retried on
+a later tick.
 
 ## Configuration
 
@@ -120,7 +118,8 @@ nodes:
 ```
 
 - **Product defaults** are the numbers above, from [0012](../decisions/0012-threshold-model.md);
-  the evaluation tick is a compiled-in 1m with no key to change it.
+  the evaluation tick is 1m ([0015](../decisions/0015-evaluation-on-a-tick.md)) and no key
+  changes it.
 - **Layering** follows [0010](../decisions/0010-agent-configuration.md) and merges field by
   field: product default → top-level `rules` → class `rules` → node `rules` → volume
   `rules`. The `backup` branch is a rule of its own, not an overlay on the default one: it
@@ -129,7 +128,7 @@ nodes:
 - **A `volumes` key selects a subject by a byte-identical `mount` label**, the mount point
   exactly as the OS reports it ([disk-sensor.md](disk-sensor.md#labels)). Nothing is
   normalised: a trailing slash is a different volume.
-- **Sizes are decimal** (`10GB` = 10 000 000 000), matching how `internal/i18n` renders them
+- **Sizes are decimal** (`10GB` = 10 000 000 000), matching how the interface renders them
   and how disks are sold. `ratio` is a percentage number, not a fraction.
 - **Secrets are never in the file**: with `channel: telegram` the bot token and the chat id
   come from `MONITOR_TELEGRAM_TOKEN` and `MONITOR_TELEGRAM_CHAT_ID`
@@ -138,7 +137,7 @@ nodes:
 ## Behaviour
 
 One row = one test. Anchors: `spec: evaluation.md#<heading>`. A row that asserts a message
-is observed through the `Notifier` interface, for which tests substitute a recorder.
+asserts what is delivered on the configured channel.
 
 ### Levels
 
@@ -201,7 +200,7 @@ own `ts`, measured against the **older** of the joined series.
 
 | Situation | Result |
 |---|---|
-| the node is silent (see below) | its subjects are frozen, except the `silence` subject itself |
+| the node is silent (see below) | its subjects are frozen in that same tick, except the `silence` subject itself |
 | a subject's older series is older than `stale_after` | that subject is frozen; the others are evaluated |
 | one of the two series is stale and the other fresh | frozen: the join is only as fresh as its older half |
 | a subject whose second series has never arrived | no subject at all: an incomplete join is not a level |
@@ -272,7 +271,8 @@ A digest carries a list of those, one entry per subject.
 ### Digest
 
 The digest carries warnings only; critical is instant and repeats on its own clock. Its
-content is derived from `events` and `states`, so a restart cannot lose a queue.
+content is derived from the recorded transitions and the current levels, so a restart
+cannot lose a queue.
 
 A digest is due when the most recent occurrence of `digest.at` in `digest.timezone` at or
 before the tick time is later than `last_digest_at`. Sending sets `last_digest_at` to that
@@ -284,39 +284,38 @@ is the hub's first start time, so history is never replayed.
 | the tick crosses `digest.at` in `digest.timezone` | one message listing every warning transition since the previous digest and every subject currently in `warning` |
 | a database that has never digested | no digest over history: `last_digest_at` starts at the hub's first start time |
 | a subject both transitioned to `warning` and is still in `warning` | listed once |
-| a warning transition written by the same tick that sends the digest | included: subjects are evaluated and committed before the digest window is read |
+| a warning transition written by the same tick that sends the digest | included: a transition recorded by a tick falls inside that tick's digest window |
 | no warning transition since the last digest and no subject in `warning` | no message: silence while all is well |
 | a subject is in `critical` and nothing is in `warning` | no digest: the critical was reported instantly |
-| several warnings on several nodes | one message, not one per subject |
+| several warnings on several nodes | one message, not one per subject, entries ordered by node name then by mount |
 | a frozen subject in `warning` | left out: its data is stale, so it is neither a transition nor a current reading |
 | the digest notifier returns an error | `last_digest_at` is not advanced; the next tick sends the same window again |
-| the hub restarts between a warning transition and `digest.at` | the transition is still in the digest: it is read from `events` |
+| the hub restarts between a warning transition and `digest.at` | the transition is still in the digest: it was recorded when it happened |
 | the digest already went out today and the hub restarts | no second digest: `last_digest_at` is the guard |
 | the hub was down at `digest.at` and starts later the same day | the digest is sent on the first tick after startup |
 | the hub was down for two days | one digest, not two: only the most recent occurrence counts |
 | `digest.at` names an hour a DST change removes | the instant is built in the configured zone and normalised forward, so the day is not skipped |
 
-### Storage
+### Persistence and restart
 
 | Operation | Result |
 |---|---|
-| a level changes | the `states` row and one `events` row are written in one transaction; `since` is the tick time of the change |
+| a level changes | one event is appended to the log and the subject's level and `since` change with it; a reader never sees one without the other, and `since` is the instant of the change |
 | the level does not change | no event, `since` untouched; only `last_notified_at` may move |
-| a subject's first evaluation, level `ok` | a `states` row with `since` = the tick time; no event: nothing changed |
-| a subject's first evaluation, level `warning` or `critical` | a `states` row plus one event with `from_level: ok` |
-| a level change that is delivered instantly | the transaction commits first, the notifier is called after it, and `last_notified_at` is written by a second update of the same row |
-| the hub restarts | levels, `since` and `last_notified_at` are read back from storage; nothing is re-notified |
-| the tick is called twice with the same clock | the second call writes no event and sends no message |
+| a subject's first evaluation, level `ok` | the subject appears with `since` = that instant; no event: nothing changed |
+| a subject's first evaluation, level `warning` or `critical` | the subject appears, plus one event whose previous level is `ok` |
+| a level change that is delivered instantly | the event is recorded before the message goes out: a hub that dies in between delivers on a later tick, and no message is ever sent for an event that was not recorded |
+| the hub restarts | every subject's level, its `since` and when it was last notified are as they were; nothing is re-notified |
+| two ticks at the same instant over unchanged data | the second writes no event and sends no message |
 | a tick fires while the previous one is still running | skipped and logged: there is only ever one evaluation pass |
-| the hub is asked to stop mid-tick | the transaction in flight commits, an in-flight notifier call is left to its timeout, and the loop exits without starting another subject |
+| the hub is asked to stop mid-tick | a change already recorded stays recorded, an in-flight send is abandoned rather than waited on, and no further subject is evaluated |
 
-`states(node, rule, labels, level, since, last_notified_at)` is keyed by the subject and
-holds `last_notified_at` empty until a message is delivered;
-`events(at, node, rule, labels, from_level, to_level, values)` is append-only, records the
-joined values under the rule's own names (`free`, `pct`; empty for `silence`), and is the
-event stream skins subscribe to ([0001](../decisions/0001-semantic-core-and-skins.md)).
-`last_digest_at` is one row in a small `meta` table. Timestamps use the storage layer's
-existing millisecond UTC format.
+`since` and `last_notified_at` above are concepts, not columns. What must survive a
+restart: each subject's level, when it reached it, and when it was last notified about; an
+append-only log of transitions carrying the values that produced each one, which is the
+event stream skins subscribe to ([0001](../decisions/0001-semantic-core-and-skins.md)); and
+when the last digest went out. How that is stored is the implementation's business
+([0017](../decisions/0017-one-spec-and-decision-gates.md)).
 
 ### Configuration changes
 
@@ -347,7 +346,7 @@ volume, and on every class the file introduces, whether or not a node uses it.
 | a resolved rule whose critical `floor`, `ratio` or `ceiling` is above the warning value for the same field | startup error naming node, volume and field |
 | `ratio` or `ceiling` under a `backup` branch | startup error: a backup rule is a floor |
 | `role` other than `backup` | startup error naming node and mount |
-| `digest.at` not `HH:MM`, or a timezone `LoadLocation` refuses | startup error naming the key |
+| `digest.at` not `HH:MM`, or a timezone the system's zone database does not carry | startup error naming the key |
 | `notify.locale` outside `en`, `ru`; `notify.channel` outside `log`, `telegram` | startup error naming the key |
 | `channel: telegram` with either environment variable unset | startup error naming the variable, never its value |
 
@@ -358,8 +357,8 @@ volume, and on every class the file introduces, whether or not a node uses it.
   change but a statement of the current state.
 - The tick is idempotent at a fixed instant: called twice with the same clock and the same
   stored data, it changes nothing.
-- The tick's only time input is the `now` it is given, so every time-dependent row is a
-  test rather than a wait.
+- A message is never delivered for a transition that was not recorded first, so the log is
+  never behind what a reader was told.
 - Nothing a threshold touches reaches an agent, so no threshold edit changes a
   `config_version` ([hub-config.md](hub-config.md#configuration-version)).
 - A restart never re-notifies what was delivered and never drops what was not:
@@ -368,7 +367,7 @@ volume, and on every class the file introduces, whether or not a node uses it.
   state or repeat an alert.
 - Recovery is the negated entry rule with a margin on every comparison, never a
   per-condition clearance ([0013](../decisions/0013-relative-hysteresis.md)).
-- Every user-facing string comes from `internal/i18n`; logs stay English
+- Every user-facing string is delivered in `notify.locale`; logs stay English
   ([0008](../decisions/0008-english-repo-bilingual-ui.md)).
 
 ## Edge cases

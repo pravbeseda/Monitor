@@ -1,6 +1,6 @@
 # Spec: <subsystem>
 
-- **Status:** draft | approved | superseded
+- **Status:** draft | approved (reviewed and in force) | superseded
 - **Owns:** the packages this spec governs, e.g. `internal/eval`
 - **Decisions:** ADRs this behaviour follows from
 
@@ -11,7 +11,10 @@ One paragraph: what this subsystem is responsible for, and what it explicitly is
 ## Behaviour
 
 The table is the contract. One row = one test. Keep rows observable: an input the caller
-can produce, an outcome the caller can see.
+can produce, an outcome the caller can see. A row that names a column, a package, a
+goroutine, a timeout or a database flag is a test, not a spec
+([0017](../decisions/0017-one-spec-and-decision-gates.md)); such constraints belong in the
+checklist and in the tests.
 
 | State | Event | New state | Side effect |
 |---|---|---|---|
@@ -40,4 +43,6 @@ What this subsystem deliberately does not handle, and which spec handles it inst
 
 ## Open questions
 
-Decisions the author cannot make alone. Empty before the spec is approved.
+Questions of the three kinds in
+[0017](../decisions/0017-one-spec-and-decision-gates.md); everything else the author decides
+and records. Empty in a spec that is in force.

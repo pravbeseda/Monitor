@@ -1,6 +1,8 @@
 # 0009. Specs for behaviour, plans for work, ADRs for decisions
 
-- **Status:** accepted
+- **Status:** accepted; the stages and gates are amended by
+  [0017](0017-one-spec-and-decision-gates.md), which keeps the purpose and drops the plan
+  document
 - **Date:** 2026-08-28
 
 ## Context
@@ -28,8 +30,8 @@ that lives as long as the code, an ADR is history that is never edited.
 experiments, for the disposable POC page, or for infrastructure chores. Premature
 specification of something not yet understood is a cost, not a safeguard.
 
-**The spec gates the implementation, not the decision.** A subsystem's spec is approved
-before its code is written, not before the ADR that chose the approach. The order is
+**The spec precedes the implementation, not the decision.** A subsystem's spec is written
+and reviewed before its code, not before the ADR that chose the approach. The order is
 decision → spec → code: an ADR settles which approach is taken, and the behaviour it implies
 — what happens on an unknown token, a malformed payload, a restart mid-incident — can only
 be specified once that approach exists. Requiring the table first would mean describing the
@@ -48,7 +50,7 @@ test without a row is visible. Spec-exempt work has no rows, and therefore no an
 | Kind | Answers | Lifetime | Location |
 |---|---|---|---|
 | Spec | how the system behaves | as long as the code | `docs/specs/` |
-| Plan | what to do, in what order | until merge | `docs/plans/` for stages; a checklist in the task for anything smaller |
+| Plan | what to do, in what order | until merge | a checklist in the task and the pull request ([0017](0017-one-spec-and-decision-gates.md)) |
 | ADR | why it was chosen | permanent, never edited | `docs/decisions/` |
 
 A plan never restates behaviour and a spec never lists work steps; whichever document owns
@@ -57,10 +59,12 @@ a statement is the only one that carries it.
 ## Consequences
 
 - Reviewing behaviour before implementation replaces reviewing intent: the behaviour table
-  is what gets approved, not a list of my steps.
+  is what the reviews are run against, not a list of my steps
+  ([0017](0017-one-spec-and-decision-gates.md)).
 - Changing behaviour means changing the spec in the same commit as the code. The pre-commit
   hook warns when guarded packages change without a spec change.
-- `docs/plans/` holds only stage-sized plans; small plans live in the task and die with it.
+- `docs/plans/` is closed to new documents
+  ([0017](0017-one-spec-and-decision-gates.md)); it keeps what already merged, as a record.
 - If a spec is ever skipped, behaviour still lives in tests — degraded, not broken.
 
 ## Alternatives

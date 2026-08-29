@@ -16,7 +16,7 @@ fastest route to a bot that gets muted within a month.
 
 - Alert on a state **transition** (ok → warn, warn → crit), not on every measurement.
 - **Hysteresis**: return to ok only above `warn_below + 3` points, so a metric sitting on
-  the boundary cannot flap.
+  the boundary cannot flap (superseded by [0013](0013-relative-hysteresis.md)).
 - Only critical is delivered instantly. Warnings accumulate into a daily digest.
 - An unresolved critical repeats at most once a day.
 - Node silence is a separate alert driven by the node class `silence_after`

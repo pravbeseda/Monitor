@@ -9,8 +9,7 @@ entry point to every document in the project.
 |---|---|
 | [concept.md](concept.md) | Idea, architectural principles, planned skins, domains, roadmap |
 | [poc.md](poc.md) | POC spec: scope, terminology, wire format, work plan, answered questions |
-| [plans/stage-1-skeleton.md](plans/stage-1-skeleton.md) | Step plan for POC stage 1: scaffolding → ingest → sensor → agent loop → web page |
-| [plans/stage-2-evaluation.md](plans/stage-2-evaluation.md) | Step plan for POC stage 2: config keys → threshold engine → state storage → delivery → tick |
+| [plans/stage-1-skeleton.md](plans/stage-1-skeleton.md) | Step plan for POC stage 1, kept as a record; plans now live in the task and the pull request ([0017](decisions/0017-one-spec-and-decision-gates.md)) |
 
 ## Architecture decisions
 
@@ -35,13 +34,15 @@ One decision per file, each stating what was rejected and why. New records start
 | [0014](decisions/0014-macos-available-space.md) | Free space is what the system calls available; cgo in the darwin sensor only | accepted |
 | [0015](decisions/0015-evaluation-on-a-tick.md) | Evaluation runs on its own tick, never inside a request | accepted |
 | [0016](decisions/0016-leaving-critical-is-instant.md) | Leaving critical is announced as instantly as entering it | accepted |
+| [0017](decisions/0017-one-spec-and-decision-gates.md) | One document per unit of work; gates on decisions, not documents | accepted |
 
 ## Behaviour specs
 
 How subsystems behave, one file per subsystem, each built around a behaviour table that
 tests are derived from. Required for contracts, stateful algorithms and multi-session work
-(see [ADR 0009](decisions/0009-development-process.md)); new specs start from
-[TEMPLATE.md](specs/TEMPLATE.md).
+(see [ADR 0009](decisions/0009-development-process.md)); rows state only what an observer
+can see ([ADR 0017](decisions/0017-one-spec-and-decision-gates.md)). New specs start from
+[TEMPLATE.md](specs/TEMPLATE.md), and "approved" below means reviewed and in force.
 
 | Spec | Owns | Status |
 |---|---|---|
@@ -67,7 +68,7 @@ Reasoning from working sessions, including options that were rejected.
 - `docs/architecture/` — subsystem documents arrive with the code. Until then the
   architecture fits in [concept.md](concept.md), the ADRs and the specs, and duplicating it
   would create a second source of truth.
-- Install and deployment guide — after POC stage 1.
+- Install and deployment guide — with POC stage 3, where the units and the nginx vhost land.
 
 ## Where a new open question goes
 
