@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="{{ .Locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ .Title }}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 60rem; }
+    h1 { font-size: 1.4rem; }
+    section { margin-bottom: 2rem; }
+    h2 { font-size: 1.1rem; margin-bottom: 0.2rem; }
+    p.meta { color: #666; margin-top: 0; font-size: 0.9rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { text-align: left; padding: 0.3rem 0.6rem; border-bottom: 1px solid #ddd; }
+    th { font-weight: 600; font-size: 0.85rem; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>{{ .Title }}</h1>
+  {{ if not .Nodes }}
+    <p>{{ .Empty }}</p>
+  {{ end }}
+  {{ range .Nodes }}
+    <section>
+      <h2>{{ .Name }}</h2>
+      <p class="meta">{{ $.LastSeenLabel }}: {{ .LastSeen }}</p>
+      {{ if .Values }}
+        <table>
+          <thead>
+            <tr>
+              <th>{{ $.MetricLabel }}</th>
+              <th>{{ $.VolumeLabel }}</th>
+              <th>{{ $.ValueLabel }}</th>
+              <th>{{ $.CollectedLabel }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ range .Values }}
+              <tr>
+                <td>{{ .Metric }}</td>
+                <td>{{ .Volume }}</td>
+                <td>{{ .Value }}</td>
+                <td>{{ .Collected }}</td>
+              </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      {{ else }}
+        <p class="meta">{{ $.NoValues }}</p>
+      {{ end }}
+    </section>
+  {{ end }}
+</body>
+</html>

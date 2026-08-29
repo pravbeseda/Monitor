@@ -15,5 +15,6 @@ import (
 func Routes(cfg *config.Config, store storage.Storage, now func() time.Time) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.Handle("POST /api/v1/ingest", ingest.NewHandler(cfg, store, now))
+	mux.Handle("GET /{$}", Page(store))
 	return mux
 }
