@@ -3,6 +3,8 @@
 // (docs/specs/evaluation.md).
 package evaluate
 
+import "sort"
+
 // Definition is what a rule reads and what it defaults to. Naming the sensor is what makes
 // staleness computable: the metric ids alone do not identify one.
 type Definition struct {
@@ -28,6 +30,17 @@ var definitions = map[string]Definition{
 		Default: defaultDiskRule(),
 		Backup:  defaultBackupRule(),
 	},
+}
+
+// Names lists the rules the hub implements, in order. The hub's configuration resolves a
+// rule for each of them, whether or not the file mentions any.
+func Names() []string {
+	names := make([]string, 0, len(definitions))
+	for name := range definitions {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // Lookup returns the definition of one rule, and reports whether the hub implements it at

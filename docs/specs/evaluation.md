@@ -91,9 +91,8 @@ a later tick.
 
 ## Configuration
 
-These keys extend [hub-config.md](hub-config.md), which refuses them as unknown until this
-spec's code ships. None of them reaches an agent, so none of them changes a
-`config_version`.
+These keys extend [hub-config.md](hub-config.md). None of them reaches an agent, so none
+of them changes a `config_version`.
 
 ```yaml
 digest: { at: "09:00", timezone: UTC }   # product default
@@ -129,7 +128,9 @@ nodes:
   exactly as the OS reports it ([disk-sensor.md](disk-sensor.md#labels)). Nothing is
   normalised: a trailing slash is a different volume.
 - **Sizes are decimal** (`10GB` = 10 000 000 000), matching how the interface renders them
-  and how disks are sold. `ratio` is a percentage number, not a fraction.
+  and how disks are sold. `ratio` is a percentage number, not a fraction, and a band is
+  removed by setting both of its halves to zero — half of one is refused, because half a
+  band would be ignored in silence.
 - **Secrets are never in the file**: with `channel: telegram` the bot token and the chat id
   come from `MONITOR_TELEGRAM_TOKEN` and `MONITOR_TELEGRAM_CHAT_ID`
   ([0007](../decisions/0007-public-repository.md) rule 4).
@@ -338,8 +339,11 @@ about the first tick after a restart with a changed file.
 ### Startup validation
 
 Rows the hub refuses to start on, in the manner of [hub-config.md](hub-config.md#startup).
-Like every check there, they run on the resolved rule of every node and every declared
-volume, and on every class the file introduces, whether or not a node uses it.
+What a layer says on its own terms — a size, a ratio, a rule name, the shape of a `backup`
+branch — is checked at every layer, including a class no node uses yet. What only a
+finished rule can be judged on — critical against warning — is checked on the resolved rule
+of every node and every declared volume, because a layer above may raise the value that
+makes it consistent ([hub-config.md](hub-config.md#invariants)).
 
 | Configuration | Result |
 |---|---|

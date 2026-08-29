@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/pravbeseda/monitor/internal/evaluate"
 )
 
 // minTokenLength keeps the security of ADR 0007 rule 5 on the token, not on obscurity.
@@ -42,6 +44,24 @@ type Node struct {
 	Agent        Agent
 	// Version identifies Agent, not the node: identical configurations share it.
 	Version string
+	// rules judge a volume the file says nothing about; volumes carries the rules of the
+	// mounts it names, already resolved from the branch each one's role selects. Neither
+	// reaches an agent: thresholds are the hub's business (ADR 0012).
+	rules   map[string]evaluate.Rule
+	volumes map[string]map[string]evaluate.Rule
+}
+
+// Rule returns the thresholds that judge one subject of this node: the rules of the volume
+// at that mount when the file names it, and the node's own otherwise. A mount is matched
+// byte for byte, exactly as the sensor reports it, so a trailing slash is another volume.
+func (n Node) Rule(name, mount string) (evaluate.Rule, bool) {
+	if volume, named := n.volumes[mount]; named {
+		if found, ok := volume[name]; ok {
+			return found, true
+		}
+	}
+	found, ok := n.rules[name]
+	return found, ok
 }
 
 // Config is the resolved file: one entry per listed node.

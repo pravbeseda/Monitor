@@ -15,10 +15,11 @@ authenticates with, and a flat per-node configuration with a version, which
 [0010](../decisions/0010-agent-configuration.md) — sensor default → node class → node —
 so that nothing downstream merges anything.
 
-It does not evaluate: the `rules`, `digest` and `notify` keys, volume roles and the
-meaning of `silence_after` belong to [evaluation](evaluation.md). Until that spec's code
-ships the hub knows none of those keys and refuses to start on them, like any unknown key
-(see [Startup](#startup)). This spec owns only the tokens and what reaches an agent.
+It does not evaluate: the `rules` and `volumes` keys, volume roles and the meaning of
+`silence_after` belong to [evaluation](evaluation.md), which owns their validation too.
+The hub parses them; it still knows nothing of `digest` and `notify` and refuses to start
+on them, like any unknown key (see [Startup](#startup)). This spec owns only the tokens and
+what reaches an agent.
 
 ## The file
 

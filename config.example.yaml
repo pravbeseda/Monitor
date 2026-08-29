@@ -14,6 +14,16 @@ skip_mounts: ["/System/Volumes/", "/Library/Developer/CoreSimulator/"]
 sensors:
   disk: { interval: 15m }
 
+# Thresholds are a floor plus a proportional band, and a volume declared role: backup keeps
+# headroom only. See docs/specs/evaluation.md; every number here is a product default.
+rules:
+  disk:
+    warning:  { floor: 10GB, ratio: 15, ceiling: 100GB }
+    critical: { floor: 4GB,  ratio: 7,  ceiling: 40GB }
+    backup:
+      warning:  { floor: 50GB }
+      critical: { floor: 10GB }
+
 classes:
   laptop:
     profile: [disk]
@@ -33,3 +43,5 @@ nodes:
     token_env: MONITOR_TOKEN_SERVER_B
     sensors:
       disk: { interval: 5m }
+    volumes:
+      "/data/backup": { role: backup }

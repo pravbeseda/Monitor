@@ -25,3 +25,12 @@ func TestSilenceIsNotAConfigurableRule(t *testing.T) {
 		t.Fatal("silence is configurable, which would give it thresholds it has no use for")
 	}
 }
+
+// The hub's configuration resolves a rule for every implemented name, so the list is what
+// says which rules exist at all.
+func TestNamesListsTheImplementedRules(t *testing.T) {
+	names := evaluate.Names()
+	if len(names) != 1 || names[0] != "disk" {
+		t.Fatalf("Names() = %v, want [disk]", names)
+	}
+}
