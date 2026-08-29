@@ -53,8 +53,8 @@ func run(args []string, out io.Writer) error {
 		}
 	}()
 
-	if _, err := fmt.Fprintf(out, "monitor-hub %s: %d nodes configured, listening on %s\n",
-		version.Current, len(cfg.Nodes()), opts.listen); err != nil {
+	if _, err := fmt.Fprintf(out, "monitor-hub %s listening on %s (nodes: %d)\n",
+		version.Current, opts.listen, len(cfg.Nodes())); err != nil {
 		return fmt.Errorf("write to stdout: %w", err)
 	}
 

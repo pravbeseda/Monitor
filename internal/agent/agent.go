@@ -101,7 +101,12 @@ func (a *Agent) Tick(ctx context.Context) error {
 	a.buffer = append(a.buffer, a.collect(ctx, now)...)
 	a.trimBuffer()
 
+	// An empty batch has to reach the hub as [] and not as null: a heartbeat carries no
+	// measurements, but it does carry the field.
 	batch := a.buffer
+	if batch == nil {
+		batch = []api.Measurement{}
+	}
 	resp, err := a.client.Send(ctx, api.Request{
 		Node:          a.node,
 		AgentVersion:  version.Current,

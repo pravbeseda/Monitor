@@ -6,14 +6,18 @@ rank, freshness) and is rendered by interchangeable skins.
 
 ## Current state
 
-**POC stage 1 — the skeleton is being built** ([plan](docs/plans/stage-1-skeleton.md)).
-A Go module (`github.com/pravbeseda/Monitor`) with two hello-world binaries and the
-quality gates; ingest, storage, sensor, agent loop and web page are still to come.
+**POC stage 1 — the skeleton runs end to end** ([plan](docs/plans/stage-1-skeleton.md)).
+The agent collects free space per volume and pushes it to the hub, which authenticates it,
+stores it in SQLite, answers with the node's configuration, and shows the latest values at
+`/` in English and Russian. Evaluation, alerts and services are stages 2 and 3.
 
 ```
 go test -race -cover ./...   # tests
 gofmt -l . && go vet ./...   # the fast pair, also run by the pre-commit hook
 golangci-lint run            # the full linter set, also run by CI
+
+MONITOR_TOKEN_LAPTOP_A=<token> go run ./cmd/hub --config config.yaml --db monitor.db
+MONITOR_TOKEN=<token> go run ./cmd/agent --hub http://127.0.0.1:8080 --node laptop-a
 ```
 
 ## Start here

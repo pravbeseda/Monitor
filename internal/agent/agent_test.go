@@ -2,8 +2,10 @@ package agent_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -106,6 +108,25 @@ func TestFirstTickAnnouncesTheAgent(t *testing.T) {
 	}
 	if len(req.Manifest) != 1 || req.Manifest[0].Sensor != "disk" || !req.Manifest[0].Applicable {
 		t.Errorf("manifest = %+v, want the sensors this build contains", req.Manifest)
+	}
+}
+
+// spec: agent.md#ticking — the heartbeat carries an empty batch, not an absent one: the
+// hub refuses a request whose measurements are missing.
+func TestHeartbeatEncodesAnEmptyBatch(t *testing.T) {
+	h, c := &hub{}, &clock{at: start}
+	a := newAgent(t, h, c)
+
+	if err := a.Tick(context.Background()); err != nil {
+		t.Fatalf("Tick: %v", err)
+	}
+
+	body, err := json.Marshal(h.last())
+	if err != nil {
+		t.Fatalf("encode request: %v", err)
+	}
+	if !strings.Contains(string(body), `"measurements":[]`) {
+		t.Errorf("request = %s, want an empty measurements array", body)
 	}
 }
 
