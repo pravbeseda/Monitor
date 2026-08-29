@@ -40,5 +40,10 @@ func (systemSource) Usage(mount string) (Usage, error) {
 		return Usage{}, fmt.Errorf("read %s: %w", mount, err)
 	}
 	size := uint64(stat.Bsize)
-	return Usage{TotalBytes: stat.Blocks * size, AvailBytes: stat.Bavail * size}, nil
+	usage := Usage{TotalBytes: stat.Blocks * size, AvailBytes: stat.Bavail * size}
+	// What macOS calls available counts purgeable space; statfs does not (ADR 0014).
+	if forImportantUsage, answered := available(mount); answered {
+		usage.AvailBytes = forImportantUsage
+	}
+	return usage, nil
 }

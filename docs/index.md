@@ -31,6 +31,7 @@ One decision per file, each stating what was rejected and why. New records start
 | [0011](decisions/0011-quality-gates.md) | Quality is enforced by tooling, not by attention | accepted |
 | [0012](decisions/0012-threshold-model.md) | Disk thresholds are a floor plus a proportional band | accepted |
 | [0013](decisions/0013-relative-hysteresis.md) | Hysteresis is a relative margin, not a fixed number of points | accepted |
+| [0014](decisions/0014-macos-available-space.md) | Free space is what the system calls available; cgo in the darwin sensor only | accepted |
 
 ## Behaviour specs
 

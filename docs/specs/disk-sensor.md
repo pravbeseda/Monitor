@@ -23,11 +23,17 @@ which needs an absolute and a proportional reading of the same volume:
 
 | Metric | Value |
 |---|---|
-| `disk.free_bytes` | blocks available to an unprivileged user × block size |
-| `disk.free_pct` | 100 × available ÷ total, rounded to two decimals |
+| `disk.free_bytes` | the space the system reports as available for important use |
+| `disk.free_pct` | 100 × that value ÷ total size, rounded to two decimals |
 
 Available, not free: the blocks a filesystem reserves for root are not space the machine
 can use, and reporting them would delay every alert by the size of the reserve.
+
+What "available" means is the operating system's answer, not a system call chosen once
+([0014](../decisions/0014-macos-available-space.md)): on Linux the blocks `statfs` leaves
+to an unprivileged user, on macOS `kCFURLVolumeAvailableCapacityForImportantUsageKey`,
+which counts purgeable space — the local snapshots and caches macOS deletes by itself
+when a volume fills. On a Mac the two differ by tens of gigabytes.
 
 Both metrics carry the same labels, so one volume is one series in two units:
 
@@ -55,6 +61,7 @@ One row = one test. Anchors: `spec: disk-sensor.md#<heading>`.
 | a volume reporting zero total blocks | nothing: a percentage of nothing is not a number |
 | a volume that vanishes between enumeration and reading | nothing for it; every other volume is still collected |
 | a volume the agent may not read | nothing for it; every other volume is still collected |
+| macOS refuses the available-capacity question, or answers zero | the `statfs` value is reported instead: system volumes and backup targets answer zero by design |
 | the mount table cannot be read at all | no measurements and an error the agent logs |
 | no volume passes the allow-list | no measurements; the request itself still carries the heartbeat |
 
@@ -90,6 +97,9 @@ One row = one test. Anchors: `spec: disk-sensor.md#<heading>`.
   is what lets the hub tell that from a vanished internal disk (stage 2).
 - **A mount point with spaces or non-ASCII characters** is carried verbatim; labels are
   not sanitised, because the label is what identifies the volume.
+- **Purgeable space on macOS** is counted as available, so a Mac reports what Finder
+  shows rather than what `df` does. The panel and the operating system agree, and a
+  threshold is not spent on space the system reclaims on its own.
 - **A volume remounted at a different path** starts a new series: the mount point is part
   of the identity, and the alternative — matching by device — breaks when a disk is
   reformatted.

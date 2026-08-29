@@ -11,7 +11,12 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # The darwin half of the disk sensor is cgo (ADR 0014); only a macOS runner compiles it.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 

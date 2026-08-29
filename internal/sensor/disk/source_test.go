@@ -3,8 +3,21 @@ package disk_test
 import (
 	"testing"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/pravbeseda/Monitor/internal/sensor/disk"
 )
+
+// statfsAvailable is the number the platform would report without ADR 0014: on macOS the
+// sensor must be at least as generous, on Linux exactly equal.
+func statfsAvailable(t *testing.T, mount string) uint64 {
+	t.Helper()
+	var stat unix.Statfs_t
+	if err := unix.Statfs(mount, &stat); err != nil {
+		t.Fatalf("statfs %s: %v", mount, err)
+	}
+	return stat.Bavail * uint64(stat.Bsize)
+}
 
 // The platform source is thin but easy to break; this checks it against the machine the
 // tests run on, whichever of the two supported platforms that is.
@@ -30,5 +43,8 @@ func TestSystemSourceReadsThisMachine(t *testing.T) {
 	}
 	if usage.TotalBytes == 0 || usage.AvailBytes > usage.TotalBytes {
 		t.Errorf("usage = %+v, want a plausible root volume", usage)
+	}
+	if usage.AvailBytes < statfsAvailable(t, "/") {
+		t.Errorf("available = %d, want at least what statfs reports (ADR 0014)", usage.AvailBytes)
 	}
 }
