@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/sensor"
-	"github.com/pravbeseda/Monitor/internal/sensor/disk"
+	"github.com/pravbeseda/monitor/internal/sensor"
+	"github.com/pravbeseda/monitor/internal/sensor/disk"
 )
 
 var collected = time.Date(2026, 8, 28, 10, 0, 0, 0, time.UTC)

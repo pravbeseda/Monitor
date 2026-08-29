@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pravbeseda/Monitor/internal/i18n"
-	"github.com/pravbeseda/Monitor/internal/storage"
+	"github.com/pravbeseda/monitor/internal/i18n"
+	"github.com/pravbeseda/monitor/internal/storage"
 )
 
 //go:embed templates/index.html

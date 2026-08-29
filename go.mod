@@ -1,4 +1,4 @@
-module github.com/pravbeseda/Monitor
+module github.com/pravbeseda/monitor
 
 go 1.27.0
 

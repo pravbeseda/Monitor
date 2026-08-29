@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/agent"
-	"github.com/pravbeseda/Monitor/internal/api"
-	"github.com/pravbeseda/Monitor/internal/sensor"
+	"github.com/pravbeseda/monitor/internal/agent"
+	"github.com/pravbeseda/monitor/internal/api"
+	"github.com/pravbeseda/monitor/internal/sensor"
 )
 
 var start = time.Date(2026, 8, 28, 10, 0, 0, 0, time.UTC)

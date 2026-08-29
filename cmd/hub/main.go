@@ -10,10 +10,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/config"
-	"github.com/pravbeseda/Monitor/internal/hub"
-	"github.com/pravbeseda/Monitor/internal/storage"
-	"github.com/pravbeseda/Monitor/internal/version"
+	"github.com/pravbeseda/monitor/internal/config"
+	"github.com/pravbeseda/monitor/internal/hub"
+	"github.com/pravbeseda/monitor/internal/storage"
+	"github.com/pravbeseda/monitor/internal/version"
 )
 
 // readHeaderTimeout keeps a stalled client from holding a connection open forever.

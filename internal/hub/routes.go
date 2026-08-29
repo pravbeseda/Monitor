@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/config"
-	"github.com/pravbeseda/Monitor/internal/ingest"
-	"github.com/pravbeseda/Monitor/internal/storage"
+	"github.com/pravbeseda/monitor/internal/config"
+	"github.com/pravbeseda/monitor/internal/ingest"
+	"github.com/pravbeseda/monitor/internal/storage"
 )
 
 // Routes mounts every endpoint the hub serves. The version prefix is part of the

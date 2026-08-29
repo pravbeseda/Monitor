@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/config"
+	"github.com/pravbeseda/monitor/internal/config"
 )
 
 // The wire format of docs/specs/ingest.md. Unknown fields are ignored, so an older hub

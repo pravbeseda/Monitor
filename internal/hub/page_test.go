@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/hub"
-	"github.com/pravbeseda/Monitor/internal/storage"
+	"github.com/pravbeseda/monitor/internal/hub"
+	"github.com/pravbeseda/monitor/internal/storage"
 )
 
 var lastSeen = time.Date(2026, 8, 28, 10, 5, 0, 0, time.UTC)

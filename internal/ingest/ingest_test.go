@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/config"
-	"github.com/pravbeseda/Monitor/internal/ingest"
-	"github.com/pravbeseda/Monitor/internal/storage"
+	"github.com/pravbeseda/monitor/internal/config"
+	"github.com/pravbeseda/monitor/internal/ingest"
+	"github.com/pravbeseda/monitor/internal/storage"
 )
 
 const tokenEnv = "MONITOR_TOKEN_LAPTOP_A"

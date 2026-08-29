@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/api"
+	"github.com/pravbeseda/monitor/internal/api"
 )
 
 func TestFormatDuration(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/i18n"
+	"github.com/pravbeseda/monitor/internal/i18n"
 )
 
 func TestNegotiate(t *testing.T) {

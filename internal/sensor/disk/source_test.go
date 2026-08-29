@@ -5,7 +5,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/pravbeseda/Monitor/internal/sensor/disk"
+	"github.com/pravbeseda/monitor/internal/sensor/disk"
 )
 
 // statfsAvailable is the number the platform would report without ADR 0014: on macOS the

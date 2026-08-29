@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/agent"
-	"github.com/pravbeseda/Monitor/internal/sensor"
-	"github.com/pravbeseda/Monitor/internal/sensor/disk"
-	"github.com/pravbeseda/Monitor/internal/version"
+	"github.com/pravbeseda/monitor/internal/agent"
+	"github.com/pravbeseda/monitor/internal/sensor"
+	"github.com/pravbeseda/monitor/internal/sensor/disk"
+	"github.com/pravbeseda/monitor/internal/version"
 )
 
 // tokenVariable holds the node's token: a secret never lives in a file in the tree.

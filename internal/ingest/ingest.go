@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/api"
-	"github.com/pravbeseda/Monitor/internal/config"
-	"github.com/pravbeseda/Monitor/internal/storage"
+	"github.com/pravbeseda/monitor/internal/api"
+	"github.com/pravbeseda/monitor/internal/config"
+	"github.com/pravbeseda/monitor/internal/storage"
 )
 
 const (

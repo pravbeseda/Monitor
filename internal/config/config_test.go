@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/config"
+	"github.com/pravbeseda/monitor/internal/config"
 )
 
 // Synthetic throughout, per ADR 0007: invented node names, and a token built at runtime

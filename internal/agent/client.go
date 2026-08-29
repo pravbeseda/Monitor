@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/api"
+	"github.com/pravbeseda/monitor/internal/api"
 )
 
 // ingestPath is versioned like every endpoint the hub serves.

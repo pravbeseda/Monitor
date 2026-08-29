@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/sensor"
+	"github.com/pravbeseda/monitor/internal/sensor"
 )
 
 const (

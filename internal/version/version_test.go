@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/pravbeseda/Monitor/internal/version"
+	"github.com/pravbeseda/monitor/internal/version"
 )
 
 func TestCurrentIsSemver(t *testing.T) {

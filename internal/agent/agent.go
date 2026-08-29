@@ -8,9 +8,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/pravbeseda/Monitor/internal/api"
-	"github.com/pravbeseda/Monitor/internal/sensor"
-	"github.com/pravbeseda/Monitor/internal/version"
+	"github.com/pravbeseda/monitor/internal/api"
+	"github.com/pravbeseda/monitor/internal/sensor"
+	"github.com/pravbeseda/monitor/internal/version"
 )
 
 const (
