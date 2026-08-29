@@ -24,6 +24,22 @@ fi
 
 gitleaks git --staged --redact --no-banner
 
+# The fast pair of the quality gates (ADR 0011); the slow pair runs in CI.
+gofiles=$(echo "$staged" | grep -E '\.go$' || true)
+if [ -n "$gofiles" ]; then
+	if ! command -v go >/dev/null 2>&1; then
+		echo "pre-commit: Go files are staged but go is not installed." >&2
+		exit 1
+	fi
+	unformatted=$(gofmt -l $gofiles)
+	if [ -n "$unformatted" ]; then
+		echo "pre-commit: not gofmt-ed:" >&2
+		echo "$unformatted" | sed 's/^/  /' >&2
+		exit 1
+	fi
+	go vet ./...
+fi
+
 # Behaviour lives in docs/specs (ADR 0009). Changing implementation without touching a spec
 # is often spec rot — but a spec is not always due, so this warns and never blocks.
 guarded=$(echo "$staged" | grep -E '^internal/' || true)

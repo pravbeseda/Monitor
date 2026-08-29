@@ -1,0 +1,11 @@
+# Linter set from docs/decisions/0011-quality-gates.md.
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - gocritic
+    - revive

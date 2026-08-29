@@ -1,0 +1,35 @@
+# Example hub configuration — synthetic names only (ADR 0007).
+# The real file lives on the server and is never committed; see docs/specs/hub-config.md.
+#
+# Every key here is optional except `nodes`: what is omitted falls back to the product
+# defaults compiled into the hub. Tokens are read from the environment, one variable per
+# node, and are never written in this file.
+
+base_tick: 5m
+filesystems: [apfs, ext4, xfs, btrfs, zfs, ntfs]
+
+# Mount points not worth watching. An empty list watches everything the allow-list admits.
+skip_mounts: ["/System/Volumes/", "/Library/Developer/CoreSimulator/"]
+
+sensors:
+  disk: { interval: 15m }
+
+classes:
+  laptop:
+    profile: [disk]
+    silence_after: 48h
+    sensors:
+      disk: { interval: 1h }
+  server:
+    profile: [disk]
+    silence_after: 10m
+
+nodes:
+  laptop-a:
+    class: laptop
+    token_env: MONITOR_TOKEN_LAPTOP_A
+  server-b:
+    class: server
+    token_env: MONITOR_TOKEN_SERVER_B
+    sensors:
+      disk: { interval: 5m }

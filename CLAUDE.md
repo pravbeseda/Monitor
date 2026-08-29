@@ -4,12 +4,20 @@ A personal control panel for life: metrics from infrastructure, finance and heal
 into one semantic core that computes their *meaning* (health 0–100, status, trend, anomaly
 rank, freshness) and is rendered by interchangeable skins.
 
-## Current state
+## Commands
 
-**Design stage — no code yet.** No build, no tests and no dependency manifest. Do not
-invent commands for any of these; if a task needs them, they have to be created first.
-The directory is a git repository, so the branch and pull request workflow below applies
-from the first change.
+```
+go test -race -cover ./...   # tests
+gofmt -l . && go vet ./...   # the fast pair, also run by the pre-commit hook
+golangci-lint run            # the full linter set, also run by CI
+
+MONITOR_TOKEN_LAPTOP_A=<token> go run ./cmd/hub --config config.yaml --db monitor.db
+MONITOR_TOKEN=<token> go run ./cmd/agent --hub http://127.0.0.1:8080 --node laptop-a
+```
+
+**Where the project stands is not written here.** The work plan in
+[docs/poc.md](docs/poc.md) and the stage plans in [docs/plans/](docs/plans/) own that, and
+a second copy of it in this file is a copy that goes stale.
 
 ## Start here
 
@@ -65,6 +73,7 @@ are versioned, so a fresh clone must enable them once:
 ```
 git config core.hooksPath .githooks   # required after cloning
 brew install gitleaks                 # macOS; see the gitleaks README on Debian
+brew install go golangci-lint         # the toolchain the hook and CI run
 ```
 
 ## Language

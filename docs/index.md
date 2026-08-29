@@ -9,6 +9,7 @@ entry point to every document in the project.
 |---|---|
 | [concept.md](concept.md) | Idea, architectural principles, planned skins, domains, roadmap |
 | [poc.md](poc.md) | POC spec: scope, terminology, wire format, work plan, answered questions |
+| [plans/stage-1-skeleton.md](plans/stage-1-skeleton.md) | Step plan for POC stage 1: scaffolding → ingest → sensor → agent loop → web page |
 
 ## Architecture decisions
 
@@ -30,6 +31,7 @@ One decision per file, each stating what was rejected and why. New records start
 | [0011](decisions/0011-quality-gates.md) | Quality is enforced by tooling, not by attention | accepted |
 | [0012](decisions/0012-threshold-model.md) | Disk thresholds are a floor plus a proportional band | accepted |
 | [0013](decisions/0013-relative-hysteresis.md) | Hysteresis is a relative margin, not a fixed number of points | accepted |
+| [0014](decisions/0014-macos-available-space.md) | Free space is what the system calls available; cgo in the darwin sensor only | accepted |
 
 ## Behaviour specs
 
@@ -40,7 +42,10 @@ tests are derived from. Required for contracts, stateful algorithms and multi-se
 
 | Spec | Owns | Status |
 |---|---|---|
-| _none yet_ | | |
+| [ingest.md](specs/ingest.md) | `/api/v1/ingest` contract: request, response, config delivery | approved |
+| [hub-config.md](specs/hub-config.md) | The hub's YAML file: validation, layering, per-node configuration and its version | approved |
+| [disk-sensor.md](specs/disk-sensor.md) | The disk sensor: enumeration, filtering and the label contract of its metrics | approved |
+| [agent.md](specs/agent.md) | The agent: local configuration, tick loop, delivery and configuration application | approved |
 
 ## Design notes
 
@@ -49,13 +54,13 @@ Reasoning from working sessions, including options that were rejected.
 | Date | Topic |
 |---|---|
 | [2026-08-28](log/2026-08-28-concept.md) | Project start: visual concepts, architecture, naming |
+| [2026-08-29](log/2026-08-29-stage-1-decisions.md) | Stage 1: locale negotiation, one wire package, what the live run caught |
 
 ## Not written yet
 
 - `docs/architecture/` — subsystem documents arrive with the code. Until then the
   architecture fits in [concept.md](concept.md), the ADRs and the specs, and duplicating it
   would create a second source of truth.
-- `docs/plans/` — stage-sized plans; created with the first one.
 - Install and deployment guide — after POC stage 1.
 
 ## Where a new open question goes
