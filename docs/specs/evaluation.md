@@ -313,6 +313,9 @@ is the hub's first start time, so history is never replayed.
 | two ticks at the same instant over unchanged data | the second writes no event and sends no message |
 | a tick fires while the previous one is still running | skipped and logged: there is only ever one evaluation pass |
 | the hub is asked to stop mid-tick | a change already recorded stays recorded, an in-flight send is abandoned rather than waited on, and no further subject is evaluated |
+| the same transition is written twice | one event: a retry of a change is not a second change |
+| the stored data was written by a newer hub | the hub refuses to start rather than judge subjects against a shape it does not know |
+| a stored level this build does not know | that subject is evaluated as if it were new, and the fact is logged: corrupt data must not stop the hub from watching the rest |
 
 `since` and `last_notified_at` above are concepts, not columns. What must survive a
 restart: each subject's level, when it reached it, and when it was last notified about; an
