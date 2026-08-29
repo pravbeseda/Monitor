@@ -112,6 +112,21 @@ func TestHalfABandIsNoBand(t *testing.T) {
 	}
 }
 
+// A level read back from storage may have been written by another build, so an unknown
+// name is refused rather than guessed at.
+func TestParseLevel(t *testing.T) {
+	for _, want := range []evaluate.Level{evaluate.OK, evaluate.Warning, evaluate.Critical} {
+		if got, ok := evaluate.ParseLevel(want.String()); !ok || got != want {
+			t.Fatalf("ParseLevel(%q) = %v, %v; want %v, true", want.String(), got, ok, want)
+		}
+	}
+	for _, text := range []string{"", "unknown", "OK", "warn"} {
+		if got, ok := evaluate.ParseLevel(text); ok {
+			t.Fatalf("ParseLevel(%q) = %v, true; want it refused", text, got)
+		}
+	}
+}
+
 // Storage keeps a level as its name, so the names are part of the stored form.
 func TestLevelNames(t *testing.T) {
 	for level, want := range map[evaluate.Level]string{
