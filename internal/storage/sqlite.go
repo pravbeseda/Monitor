@@ -10,7 +10,8 @@ import (
 	_ "modernc.org/sqlite" // the CGO-free driver of ADR 0005
 )
 
-// timeLayout is fixed-width, so stored timestamps sort lexicographically.
+// timeLayout is fixed-width, so stored timestamps sort lexicographically. It also sets
+// the resolution of the uniqueness key: one millisecond (docs/specs/ingest.md).
 const timeLayout = "2006-01-02T15:04:05.000Z"
 
 const schema = `

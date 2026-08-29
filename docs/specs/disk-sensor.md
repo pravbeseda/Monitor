@@ -59,7 +59,8 @@ One row = one test. Anchors: `spec: disk-sensor.md#<heading>`.
 | a mounted volume whose type is in the allow-list | `disk.free_bytes` and `disk.free_pct` for it |
 | a volume whose type is not in the allow-list (`devfs`, `tmpfs`, `overlay`, `nfs`) | nothing: it is skipped |
 | a mount point under one of the skipped prefixes | nothing: the hub's skip list names what is not worth watching |
-| several volumes of one container (APFS, bind mounts) | one measurement pair, for the shortest mount point of the group |
+| several volumes that share one pool of free space (an APFS container, bind mounts of one device) | one measurement pair, for the shortest mount point of the group |
+| several partitions of one physical disk (two NTFS volumes on a stick) | one measurement pair each: separate pools are separate volumes |
 | a volume reporting zero total blocks | nothing: a percentage of nothing is not a number |
 | a volume that vanishes between enumeration and reading | nothing for it; every other volume is still collected |
 | a volume the agent may not read | nothing for it; every other volume is still collected |

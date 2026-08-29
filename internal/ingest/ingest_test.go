@@ -153,6 +153,7 @@ func TestValidation(t *testing.T) {
 		{"a measurement without a value", strings.Replace(valid, `, "value": 123456789`, "", 1), http.StatusBadRequest},
 		{"a value that is not finite", strings.Replace(valid, "123456789", "1e999", 1), http.StatusBadRequest},
 		{"a metric id with forbidden characters", strings.Replace(valid, "disk.free_bytes", "Disk Free!", 1), http.StatusBadRequest},
+		{"a second document behind the first", valid + " garbage", http.StatusBadRequest},
 	}
 
 	for _, tc := range tests {
@@ -188,6 +189,22 @@ func TestValidationRejectsWholeBatch(t *testing.T) {
 	}
 	if len(store.saved) != 0 {
 		t.Errorf("stored %+v, want the valid measurement rejected with the batch", store.saved)
+	}
+}
+
+// spec: ingest.md#validation — a megabyte of padding behind a valid document is still a
+// body over the limit, even though the document itself is small.
+func TestValidationRejectsOversizedTrailingBody(t *testing.T) {
+	h, store, _ := newHandler(t)
+	body := strings.ReplaceAll(validBody, "%s", "") + strings.Repeat(" ", 1<<20)
+
+	rec := post(t, h, bearer(), body)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("status = %d, want 413; body %q", rec.Code, rec.Body.String())
+	}
+	if len(store.saved) != 0 {
+		t.Errorf("stored %+v, want nothing", store.saved)
 	}
 }
 

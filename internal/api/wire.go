@@ -5,8 +5,6 @@ package api
 import (
 	"strings"
 	"time"
-
-	"github.com/pravbeseda/monitor/internal/config"
 )
 
 // The wire format of docs/specs/ingest.md. Unknown fields are ignored, so an older hub
@@ -61,23 +59,6 @@ type SensorConfig struct {
 // ErrorBody is what every refused request answers with.
 type ErrorBody struct {
 	Error string `json:"error"`
-}
-
-// Deliver flattens a resolved configuration onto the wire.
-func Deliver(agent config.Agent) *AgentConfig {
-	out := &AgentConfig{
-		BaseTick:    FormatDuration(agent.BaseTick),
-		Filesystems: agent.Filesystems,
-		SkipMounts:  agent.SkipMounts,
-		Sensors:     make(map[string]SensorConfig, len(agent.Sensors)),
-	}
-	for name, sensor := range agent.Sensors {
-		out.Sensors[name] = SensorConfig{
-			Enabled:  sensor.Enabled,
-			Interval: FormatDuration(sensor.Interval),
-		}
-	}
-	return out
 }
 
 // FormatDuration writes what an operator would write: 5m rather than 5m0s.

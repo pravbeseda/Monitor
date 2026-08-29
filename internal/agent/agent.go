@@ -144,7 +144,7 @@ func (a *Agent) collect(ctx context.Context, now time.Time) []api.Measurement {
 		}
 		a.collected[s.Name()] = now
 
-		measurements, err := s.Collect(ctx)
+		measurements, err := a.collectOne(ctx, s)
 		if err != nil {
 			slog.Error("sensor failed", "sensor", s.Name(), "error", err)
 			continue
@@ -160,6 +160,33 @@ func (a *Agent) collect(ctx context.Context, now time.Time) []api.Measurement {
 		}
 	}
 	return out
+}
+
+// collectOne gives one sensor half a tick to answer. A collection stuck in a system call
+// keeps running — the kernel owns it — but the tick, and with it the heartbeat, does not
+// wait for it.
+func (a *Agent) collectOne(ctx context.Context, s sensor.Sensor) ([]sensor.Measurement, error) {
+	budget := a.config.baseTick / 2
+	ctx, cancel := context.WithTimeout(ctx, budget)
+	defer cancel()
+
+	type answer struct {
+		measurements []sensor.Measurement
+		err          error
+	}
+	// Buffered, so an abandoned collection can finish and be garbage collected.
+	done := make(chan answer, 1)
+	go func() {
+		measurements, err := s.Collect(ctx)
+		done <- answer{measurements: measurements, err: err}
+	}()
+
+	select {
+	case got := <-done:
+		return got.measurements, got.err
+	case <-ctx.Done():
+		return nil, fmt.Errorf("no answer within %v: %w", budget, ctx.Err())
+	}
 }
 
 // trimBuffer keeps the newest measurements: an old reading is the one worth losing.

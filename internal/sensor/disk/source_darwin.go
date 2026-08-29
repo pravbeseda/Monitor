@@ -35,14 +35,21 @@ func (systemSource) Mounts() ([]Mount, error) {
 			Path:      unix.ByteSliceToString(stat.Mntonname[:]),
 			FS:        unix.ByteSliceToString(stat.Fstypename[:]),
 			Removable: stat.Flags&unix.MNT_REMOVABLE != 0,
-			Container: container(unix.ByteSliceToString(stat.Mntfromname[:])),
+			Container: container(
+				unix.ByteSliceToString(stat.Fstypename[:]),
+				unix.ByteSliceToString(stat.Mntfromname[:])),
 		})
 	}
 	return mounts, nil
 }
 
-// container is the whole disk behind a volume, or empty for anything not on one.
-func container(device string) string {
+// container is the whole disk behind an APFS volume, whose volumes share one pool of free
+// space. Other filesystems stand alone: two HFS+ or NTFS partitions of one disk have
+// separate pools, and collapsing them would drop a real volume.
+func container(filesystem, device string) string {
+	if !strings.EqualFold(filesystem, "apfs") {
+		return ""
+	}
 	name, found := strings.CutPrefix(device, "/dev/")
 	if !found {
 		return ""

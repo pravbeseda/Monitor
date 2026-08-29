@@ -18,6 +18,7 @@ func TestNegotiate(t *testing.T) {
 		{"the browser is followed when the query is silent", "", "ru-RU,ru;q=0.9,en;q=0.8", i18n.Russian},
 		{"nothing asked for means English", "", "", i18n.English},
 		{"an unsupported language falls back to English", "de", "de-DE", i18n.English},
+		{"an unsupported query leaves the choice to the browser", "de", "ru-RU", i18n.Russian},
 		{"a regional tag still matches its language", "", "ru-BY", i18n.Russian},
 	}
 

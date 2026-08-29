@@ -149,6 +149,9 @@ logs both versions when it delivers a new one.
   allow-list, skip list, sensors and intervals.
 - No deployment setting has a fallback: the hub either starts fully configured or does not
   start ([0007](../decisions/0007-public-repository.md)).
+- The whole file is validated, not only the parts a node references: a class or a sensor
+  default nobody uses yet is checked at startup, so a typo surfaces then and not on the day
+  it is wired to a node.
 - The file is read once, at startup: nothing re-reads it while the hub runs.
 
 ## Edge cases

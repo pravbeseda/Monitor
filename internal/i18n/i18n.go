@@ -14,8 +14,10 @@ const (
 	Russian Locale = "ru"
 )
 
-// Negotiate picks the locale for one request: an explicit ?lang= wins, then the
-// browser's Accept-Language, then English.
+// Negotiate picks the locale for one request: a supported ?lang= wins, then the browser's
+// Accept-Language, then English. A ?lang= naming a language the panel does not speak is
+// ignored rather than honoured — a broken link should not cost the reader the language
+// the browser already asked for.
 func Negotiate(query, acceptLanguage string) Locale {
 	if locale, ok := match(query); ok {
 		return locale

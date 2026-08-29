@@ -66,6 +66,9 @@ func Load(path string) (*Config, error) {
 	if len(f.Nodes) == 0 {
 		return nil, fmt.Errorf("%s: nodes is missing or empty, so the hub would serve nobody", path)
 	}
+	if err := validate(f); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 
 	nodes := make(map[string]Node, len(f.Nodes))
 	owner := make(map[string]string, len(f.Nodes))

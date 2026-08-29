@@ -6,8 +6,10 @@ other home, and the alternatives that were rejected.
 
 ## Locale comes from the request, not from the installation
 
-The panel picks its language per request: an explicit `?lang=` wins, otherwise the
-browser's `Accept-Language`, otherwise English. Rejected:
+The panel picks its language per request: a supported `?lang=` wins, otherwise the
+browser's `Accept-Language`, otherwise English. A `?lang=` naming a language the panel does
+not speak is ignored, not honoured: a broken link passed around should not cost the reader
+the language the browser already asks for. Rejected:
 
 - **`?lang=` only, English by default** — predictable and trivial to test, but the panel is
   opened from a phone bookmark and asking for Russian every time is a tax on the one user.

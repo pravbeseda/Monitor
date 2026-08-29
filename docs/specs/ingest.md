@@ -112,7 +112,7 @@ One row = one test. Anchors: `spec: ingest.md#<heading>`.
 | valid request | 200 | all measurements stored; node's last-seen set to hub receipt time |
 | valid request, `measurements` empty | 200 | last-seen updated, nothing else |
 | measurement with a metric id the hub's config does not declare | 200 | stored; evaluation ignores it (out of scope here) |
-| measurement identical to a stored one (same node, metric, labels, ts) | 200 | duplicate silently skipped |
+| measurement identical to a stored one (same node, metric, labels, ts to the millisecond) | 200 | duplicate silently skipped |
 | `manifest` differs from the stored one | 200 | stored manifest replaced |
 
 ### Configuration delivery
@@ -136,7 +136,7 @@ One row = one test. Anchors: `spec: ingest.md#<heading>`.
 - Every 200 advances the node's last-seen, measurements or not — arrival of an
   authenticated request is what "the agent is alive" means.
 - Re-sending an identical batch (agent retry) changes nothing: ingest is idempotent
-  over (node, metric, labels, ts).
+  over (node, metric, labels, ts), with `ts` taken to the millisecond.
 - A response contains only the requesting node's configuration, never another node's
   ([0007](../decisions/0007-public-repository.md)).
 - The agent's clock never sets last-seen; silence detection runs on hub receipt time.
@@ -146,6 +146,10 @@ One row = one test. Anchors: `spec: ingest.md#<heading>`.
 - **Malformed and from the wrong node at once**: shape is checked before ownership, so
   such a request answers 400 rather than 403. The 403 row describes a request that is
   otherwise valid.
+- **Sub-millisecond timestamps**: storage keeps `ts` to the millisecond, so two readings
+  of one series inside the same millisecond are one reading. Nothing collects that often —
+  the finest interval the hub configures is a minute — and a fixed-width timestamp is what
+  keeps the stored series sortable and readable.
 - **Clock skew**: measurement `ts` is stored as sent; the hub separately records receipt
   time. A skewed agent clock corrupts history placement, never silence detection.
 - **Config changed while the agent was offline**: the next request carries the old

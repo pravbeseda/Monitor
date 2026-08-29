@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"math"
 	"net/http"
 	"regexp"
@@ -66,13 +68,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.SaveIngest(r.Context(), in); err != nil {
+		// The agent only learns that the hub answered 500; the reason stays here.
+		slog.Error("store ingest", "node", in.Node, "error", err)
 		fail(w, http.StatusInternalServerError, "the measurements could not be stored")
 		return
 	}
 
 	body := api.Response{}
 	if req.ConfigVersion != node.Version {
-		body = api.Response{ConfigVersion: node.Version, Config: api.Deliver(node.Agent)}
+		body = api.Response{ConfigVersion: node.Version, Config: deliver(node.Agent)}
 	}
 	write(w, http.StatusOK, body)
 }
@@ -97,14 +101,31 @@ func decode(w http.ResponseWriter, r *http.Request) (api.Request, int, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 
 	var req api.Request
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		var tooLarge *http.MaxBytesError
-		if errors.As(err, &tooLarge) {
-			return api.Request{}, http.StatusRequestEntityTooLarge, fmt.Errorf("body larger than %d bytes", maxBodyBytes)
+	body := json.NewDecoder(r.Body)
+	if err := body.Decode(&req); err != nil {
+		return api.Request{}, statusFor(err), fmt.Errorf("body is not valid JSON: %w", err)
+	}
+	// Decode stops after the first value, so anything behind it would be accepted in
+	// silence: the body is one document or it is not one. Reading to the end is also what
+	// finds a body over the limit whose first document is small.
+	var trailing json.RawMessage
+	if err := body.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return api.Request{}, http.StatusBadRequest, errors.New("body carries more than one JSON document")
 		}
-		return api.Request{}, http.StatusBadRequest, fmt.Errorf("body is not valid JSON: %w", err)
+		return api.Request{}, statusFor(err), fmt.Errorf("body is not a single JSON document: %w", err)
 	}
 	return req, http.StatusOK, nil
+}
+
+// statusFor tells a body too large from a body that is merely malformed; reading past the
+// limit is how the first one is discovered.
+func statusFor(err error) int {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		return http.StatusRequestEntityTooLarge
+	}
+	return http.StatusBadRequest
 }
 
 // validate turns a request into what storage takes, or refuses the whole batch: one bad
@@ -180,4 +201,23 @@ func write(w http.ResponseWriter, status int, body any) {
 	w.WriteHeader(status)
 	// The status line is already sent, so a failed write can only be logged, not fixed.
 	_ = json.NewEncoder(w).Encode(body)
+}
+
+// deliver flattens a resolved configuration onto the wire. It lives here rather than in
+// the contract package: translating the hub's configuration is the hub's work, and the
+// agent should not link the hub's YAML machinery to read a response.
+func deliver(agent config.Agent) *api.AgentConfig {
+	out := &api.AgentConfig{
+		BaseTick:    api.FormatDuration(agent.BaseTick),
+		Filesystems: agent.Filesystems,
+		SkipMounts:  agent.SkipMounts,
+		Sensors:     make(map[string]api.SensorConfig, len(agent.Sensors)),
+	}
+	for name, sensor := range agent.Sensors {
+		out.Sensors[name] = api.SensorConfig{
+			Enabled:  sensor.Enabled,
+			Interval: api.FormatDuration(sensor.Interval),
+		}
+	}
+	return out
 }

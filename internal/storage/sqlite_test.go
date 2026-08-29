@@ -162,6 +162,24 @@ func TestOpenSQLiteEnablesWAL(t *testing.T) {
 }
 
 // States feeds the web page: the latest value of every series plus each node's last-seen.
+// spec: ingest.md#storage — the uniqueness key holds the timestamp to the millisecond.
+func TestSaveIngestKeepsOneMeasurementPerMillisecond(t *testing.T) {
+	db := open(t)
+	received := time.Date(2026, 8, 28, 10, 0, 5, 0, time.UTC)
+	first := Measurement{Metric: "disk.free_bytes", Labels: map[string]string{"mount": "/"}, Value: 1, TS: collected.Add(100 * time.Microsecond)}
+	second := first
+	second.Value = 2
+	second.TS = collected.Add(900 * time.Microsecond)
+
+	if err := db.SaveIngest(context.Background(), ingest("laptop-a", received, first, second)); err != nil {
+		t.Fatalf("SaveIngest: %v", err)
+	}
+
+	if got := db.measurements(t, "laptop-a"); len(got) != 1 || got[0].Value != 1 {
+		t.Errorf("stored %+v, want one reading per millisecond, the first one", got)
+	}
+}
+
 func TestStatesReturnsTheLatestValueOfEachSeries(t *testing.T) {
 	db := open(t)
 	first := time.Date(2026, 8, 28, 10, 0, 5, 0, time.UTC)

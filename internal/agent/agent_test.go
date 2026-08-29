@@ -32,6 +32,43 @@ func (s *stub) Collect(context.Context) ([]sensor.Measurement, error) {
 	return s.measurements, s.err
 }
 
+// counting returns a fresh batch on every collection, each value carrying the number of
+// the collection it came from, so a test can tell which end of the buffer survived.
+type counting struct {
+	name  string
+	size  int
+	calls int
+}
+
+func (c *counting) Name() string     { return c.name }
+func (c *counting) Applicable() bool { return true }
+
+func (c *counting) Collect(context.Context) ([]sensor.Measurement, error) {
+	c.calls++
+	batch := make([]sensor.Measurement, c.size)
+	for i := range batch {
+		batch[i] = reading("disk.free_bytes", float64(c.calls*c.size+i))
+	}
+	return batch, nil
+}
+
+// blocking never answers until the test releases it.
+type blocking struct {
+	name    string
+	release chan struct{}
+}
+
+func (b *blocking) Name() string     { return b.name }
+func (b *blocking) Applicable() bool { return true }
+
+func (b *blocking) Collect(ctx context.Context) ([]sensor.Measurement, error) {
+	select {
+	case <-b.release:
+	case <-ctx.Done():
+	}
+	return nil, nil
+}
+
 func reading(metric string, value float64) sensor.Measurement {
 	return sensor.Measurement{Metric: metric, Labels: map[string]string{"mount": "/"}, Value: value, TS: start}
 }
@@ -212,6 +249,30 @@ func TestSensorErrorDoesNotStopTheTick(t *testing.T) {
 	}
 }
 
+// spec: agent.md#ticking — a sensor that does not answer is left behind by the tick.
+func TestSensorThatHangsDoesNotStopTheTick(t *testing.T) {
+	h, c := &hub{}, &clock{at: start}
+	h.answers = []answer{{response: configure("v1", "100ms", map[string]api.SensorConfig{
+		"disk":    {Enabled: true, Interval: "100ms"},
+		"battery": {Enabled: true, Interval: "100ms"},
+	})}}
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	stuck := &blocking{name: "battery", release: release}
+	working := &stub{name: "disk", measurements: []sensor.Measurement{reading("disk.free_bytes", 1)}}
+	a := newAgent(t, h, c, stuck, working)
+
+	_ = a.Tick(context.Background()) // the configuration arrives here
+	c.advance(time.Second)
+	if err := a.Tick(context.Background()); err != nil {
+		t.Fatalf("Tick: %v", err)
+	}
+
+	if got := measurements(h.last()); len(got) != 1 || got[0].Metric != "disk.free_bytes" {
+		t.Errorf("measurements = %+v, want the tick to arrive without the stuck sensor", got)
+	}
+}
+
 // spec: agent.md#delivering — a hub that failed gets the same measurements again.
 func TestKeepsMeasurementsUntilTheyAreAccepted(t *testing.T) {
 	tests := map[string]error{
@@ -275,17 +336,14 @@ func TestDropsMeasurementsTheHubRefused(t *testing.T) {
 // spec: agent.md#delivering — the buffer has a ceiling, and the oldest go first.
 func TestBufferDropsTheOldestMeasurements(t *testing.T) {
 	h, c := &hub{}, &clock{at: start}
-	batch := make([]sensor.Measurement, agent.BufferLimit)
-	for i := range batch {
-		batch[i] = reading("disk.free_bytes", float64(i))
-	}
 	h.answers = []answer{
 		{response: configure("v1", "5m", map[string]api.SensorConfig{"disk": {Enabled: true, Interval: "5m"}})},
 		{err: agent.StatusError{Status: http.StatusInternalServerError}},
 		{err: agent.StatusError{Status: http.StatusInternalServerError}},
 		{},
 	}
-	disk := &stub{name: "disk", measurements: batch}
+	// Every collection fills the buffer on its own, and its values say which one it was.
+	disk := &counting{name: "disk", size: agent.BufferLimit}
 	a := newAgent(t, h, c, disk)
 
 	_ = a.Tick(context.Background())
@@ -298,9 +356,12 @@ func TestBufferDropsTheOldestMeasurements(t *testing.T) {
 	if len(got) != agent.BufferLimit {
 		t.Fatalf("measurements = %d, want the buffer capped at %d", len(got), agent.BufferLimit)
 	}
+	// The third collection is the newest, so its values are the ones worth keeping.
+	newest := float64(disk.calls * agent.BufferLimit)
 	first, last := *got[0].Value, *got[len(got)-1].Value
-	if first != 0 || last != float64(agent.BufferLimit-1) {
-		t.Errorf("kept %v..%v, want the newest batch and the oldest dropped", first, last)
+	if first != newest || last != newest+float64(agent.BufferLimit-1) {
+		t.Errorf("kept %v..%v, want the newest collection %v..%v",
+			first, last, newest, newest+float64(agent.BufferLimit-1))
 	}
 }
 

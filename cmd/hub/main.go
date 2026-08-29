@@ -21,6 +21,10 @@ const readHeaderTimeout = 10 * time.Second
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
+		// -h has already printed the flags; it is a request, not a failure.
+		if errors.Is(err, flag.ErrHelp) {
+			return
+		}
 		fmt.Fprintf(os.Stderr, "hub: %v\n", err)
 		os.Exit(1)
 	}
@@ -35,7 +39,7 @@ type options struct {
 }
 
 func run(args []string, out io.Writer) error {
-	opts, err := parseFlags(args)
+	opts, err := parseFlags(args, out)
 	if err != nil {
 		return err
 	}
@@ -69,7 +73,9 @@ func run(args []string, out io.Writer) error {
 	return nil
 }
 
-func parseFlags(args []string) (options, error) {
+// parseFlags reads the deployment paths. Its own errors are printed by the caller, so the
+// flag package stays quiet — except for -h, which is answered with the flag list on out.
+func parseFlags(args []string, out io.Writer) (options, error) {
 	flags := flag.NewFlagSet("hub", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	var opts options
@@ -77,6 +83,11 @@ func parseFlags(args []string) (options, error) {
 	flags.StringVar(&opts.db, "db", "", "path to the SQLite database")
 	flags.StringVar(&opts.listen, "listen", "127.0.0.1:8080", "address to serve on")
 	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			flags.SetOutput(out)
+			flags.Usage()
+			return options{}, err
+		}
 		return options{}, fmt.Errorf("parse flags: %w", err)
 	}
 	if opts.config == "" {

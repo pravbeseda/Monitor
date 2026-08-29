@@ -42,6 +42,7 @@ One row = one test. Anchors: `spec: agent.md#<heading>`.
 | a sensor disabled by the configuration | tick | it is not called, whatever its interval |
 | no sensor is due | tick | a request with an empty batch — the heartbeat of [0002](../decisions/0002-push-not-pull.md) |
 | a sensor returns an error | tick | the error is logged, the other sensors still post |
+| a sensor that does not answer within half the base tick | tick | its collection is abandoned and logged; the tick goes on without it |
 | a sensor's interval changes | next tick | it is measured from the sensor's last collection, not from the change |
 
 ### Delivering
@@ -76,7 +77,9 @@ lands in the right place in history.
 - The agent merges nothing: the hub sends a resolved configuration and the agent replaces
   what it holds ([0010](../decisions/0010-agent-configuration.md)).
 - Every tick sends exactly one request, whether or not any sensor had something to say.
-- A sensor never blocks the tick: collection runs under a timeout shorter than the tick.
+- A sensor never blocks the tick: each collection is given half the base tick, and what
+  has not answered by then is left behind. A collection stuck in a system call keeps
+  running until the kernel answers it, but nothing waits for it.
 - The token is never logged, and never leaves the `Authorization` header.
 - Measurements carry the collection time, so a delayed batch keeps its own history.
 

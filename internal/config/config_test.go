@@ -76,6 +76,14 @@ func TestLoadRejects(t *testing.T) {
 			"\nclasses:\n  laptop:\n    profile: [disk, battery]\n", "battery"},
 		{"a class the file introduces without silence_after", strings.Replace(minimal, "class: laptop", "class: cluster", 1) +
 			"\nclasses:\n  cluster:\n    profile: [disk]\n", "cluster"},
+		{"a class no node uses, with a broken duration", minimal +
+			"\nclasses:\n  cluster:\n    silence_after: 10m\n    base_tick: soon\n", "cluster"},
+		{"a class no node uses, without silence_after", minimal +
+			"\nclasses:\n  cluster:\n    profile: [disk]\n", "cluster"},
+		{"a sensor default no profile delivers", minimal +
+			"\nsensors:\n  battery: { interval: 5x }\n", "battery"},
+		{"an empty allow-list on a class no node uses", minimal +
+			"\nclasses:\n  cluster:\n    silence_after: 10m\n    filesystems: []\n", "filesystems"},
 	}
 
 	for _, tc := range tests {
