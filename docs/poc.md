@@ -98,6 +98,9 @@ nodes:
 **Stage 3 — operation**
 - [ ] systemd and launchd units, agent install script
 - [ ] nginx vhost for the hub, per-node tokens, authentication on the web page
+- [ ] Decide how history graphs are served, before any charting is built by hand:
+      the [munin hub-plugin proposal](log/2026-08-29-munin-hub-plugin.md) against
+      charts of our own in the web page
 - [ ] Roll out to every node, observe for a week, tune thresholds
 
 **Done when**: filling a disk on a test node produces a Telegram alert within one interval,

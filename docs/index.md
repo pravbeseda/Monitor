@@ -55,6 +55,7 @@ Reasoning from working sessions, including options that were rejected.
 |---|---|
 | [2026-08-28](log/2026-08-28-concept.md) | Project start: visual concepts, architecture, naming |
 | [2026-08-29](log/2026-08-29-stage-1-decisions.md) | Stage 1: locale negotiation, one wire package, what the live run caught |
+| [2026-08-29](log/2026-08-29-munin-hub-plugin.md) | Proposal: a munin plugin on the hub host for off-the-shelf history graphs |
 
 ## Not written yet
 
