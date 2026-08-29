@@ -15,6 +15,8 @@ type file struct {
 	SkipMounts  []string              `yaml:"skip_mounts"`
 	Sensors     map[string]fileSensor `yaml:"sensors"`
 	Rules       map[string]fileRule   `yaml:"rules"`
+	Digest      fileDigest            `yaml:"digest"`
+	Notify      fileNotify            `yaml:"notify"`
 	Classes     map[string]fileClass  `yaml:"classes"`
 	Nodes       map[string]fileNode   `yaml:"nodes"`
 }
@@ -64,6 +66,16 @@ type fileThreshold struct {
 	Floor   size     `yaml:"floor"`
 	Ratio   *float64 `yaml:"ratio"`
 	Ceiling size     `yaml:"ceiling"`
+}
+
+type fileDigest struct {
+	At       string `yaml:"at"`
+	Timezone string `yaml:"timezone"`
+}
+
+type fileNotify struct {
+	Channel string `yaml:"channel"`
+	Locale  string `yaml:"locale"`
 }
 
 type fileVolume struct {

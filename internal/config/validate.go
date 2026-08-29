@@ -8,7 +8,9 @@ import (
 
 // validate checks the whole file rather than the part some node happens to reference: a
 // class or a sensor default nobody uses yet still has to be right, or the typo surfaces
-// days later, on a running hub, the moment it is wired to a node.
+// days later, on a running hub, the moment it is wired to a node. `digest` and `notify`
+// are absent here on purpose: they have one layer, so what they say and what they must be
+// are the same statement, and it is made where they are resolved.
 func validate(f file) error {
 	if err := validateLayer("", f.BaseTick, f.Filesystems, f.Sensors); err != nil {
 		return err

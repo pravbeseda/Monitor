@@ -89,3 +89,26 @@ func TestBytesScalesToTheValue(t *testing.T) {
 		}
 	}
 }
+
+// Parse reads a locale written by hand, where a regional tag is a mistake rather than a
+// browser's habit.
+func TestParse(t *testing.T) {
+	spoken := []struct {
+		tag  string
+		want i18n.Locale
+	}{
+		{"en", i18n.English},
+		{"EN", i18n.English},
+		{"  ru  ", i18n.Russian},
+	}
+	for _, tc := range spoken {
+		if got, ok := i18n.Parse(tc.tag); !ok || got != tc.want {
+			t.Fatalf("Parse(%q) = %q, %v; want %q, true", tc.tag, got, ok, tc.want)
+		}
+	}
+	for _, tag := range []string{"ru-BY", "", "english", "fr"} {
+		if got, ok := i18n.Parse(tag); ok {
+			t.Fatalf("Parse(%q) = %q, true; want it refused", tag, got)
+		}
+	}
+}

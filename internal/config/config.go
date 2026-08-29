@@ -64,10 +64,30 @@ func (n Node) Rule(name, mount string) (evaluate.Rule, bool) {
 	return found, ok
 }
 
-// Config is the resolved file: one entry per listed node.
-type Config struct {
-	nodes map[string]Node
+// String keeps every token out of a debug print of the whole configuration (ADR 0007).
+func (n Node) String() string {
+	return fmt.Sprintf("node %s of class %s, configuration %s", n.Name, n.Class, n.Version)
 }
+
+// Config is the resolved file: one entry per listed node, plus the hub-wide settings that
+// belong to no node.
+type Config struct {
+	nodes  map[string]Node
+	digest Digest
+	notify Notify
+}
+
+// String keeps tokens out of a debug print, whatever verb is used on the configuration.
+func (c *Config) String() string {
+	return fmt.Sprintf("%d nodes, digest %02d:%02d %s, notify %s in %s",
+		len(c.nodes), c.digest.Hour, c.digest.Minute, c.digest.Location, c.notify.Channel, c.notify.Locale)
+}
+
+// Digest is when the daily digest goes out.
+func (c *Config) Digest() Digest { return c.digest }
+
+// Notify is how notifications leave the hub, secrets included.
+func (c *Config) Notify() Notify { return c.notify }
 
 // Load reads the file at path, validates it and resolves every listed node. Deployment
 // settings have no defaults, so an incomplete file is an error rather than a fallback.
@@ -90,6 +110,15 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 
+	digest, err := resolveDigest(f.Digest)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	notify, err := resolveNotify(f.Notify)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+
 	nodes := make(map[string]Node, len(f.Nodes))
 	owner := make(map[string]string, len(f.Nodes))
 	for _, name := range sorted(f.Nodes) {
@@ -103,7 +132,7 @@ func Load(path string) (*Config, error) {
 		}
 		nodes[name] = node
 	}
-	return &Config{nodes: nodes}, nil
+	return &Config{nodes: nodes, digest: digest, notify: notify}, nil
 }
 
 // Node returns the resolved configuration of one node.
@@ -135,12 +164,21 @@ func claimToken(owner map[string]string, node, env string) error {
 }
 
 func token(env string) (string, error) {
-	value := os.Getenv(env)
-	switch {
-	case value == "":
-		return "", fmt.Errorf("%s is unset: the node's token has no default", env)
-	case len(value) < minTokenLength:
+	value, err := envValue(env, "the node's token has no default")
+	if err != nil {
+		return "", err
+	}
+	if len(value) < minTokenLength {
 		return "", fmt.Errorf("%s holds fewer than %d characters", env, minTokenLength)
+	}
+	return value, nil
+}
+
+// envValue reads one deployment secret, naming the variable it wanted and never its value.
+func envValue(env, because string) (string, error) {
+	value := os.Getenv(env)
+	if value == "" {
+		return "", fmt.Errorf("%s is unset: %s", env, because)
 	}
 	return value, nil
 }

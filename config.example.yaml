@@ -24,6 +24,12 @@ rules:
       warning:  { floor: 50GB }
       critical: { floor: 10GB }
 
+# When the daily digest goes out, in the zone the deployment names — never the host's, so
+# moving the hub cannot move the hour. The Telegram bot token and chat id are read from
+# MONITOR_TELEGRAM_TOKEN and MONITOR_TELEGRAM_CHAT_ID and never written in a file.
+digest: { at: "09:00", timezone: UTC }
+notify: { channel: log, locale: en }
+
 classes:
   laptop:
     profile: [disk]

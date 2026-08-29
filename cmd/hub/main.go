@@ -2,6 +2,10 @@
 package main
 
 import (
+	// A zone name in the configuration resolves only where a zone database is; linking one
+	// in keeps digest.timezone working on a host that ships none.
+	_ "time/tzdata"
+
 	"errors"
 	"flag"
 	"fmt"

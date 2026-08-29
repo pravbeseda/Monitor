@@ -17,9 +17,8 @@ so that nothing downstream merges anything.
 
 It does not evaluate: the `rules` and `volumes` keys, volume roles and the meaning of
 `silence_after` belong to [evaluation](evaluation.md), which owns their validation too.
-The hub parses them; it still knows nothing of `digest` and `notify` and refuses to start
-on them, like any unknown key (see [Startup](#startup)). This spec owns only the tokens and
-what reaches an agent.
+It parses `digest` and `notify` too, but what they mean and what refuses them belongs to
+that spec. This one owns the tokens and what reaches an agent.
 
 ## The file
 

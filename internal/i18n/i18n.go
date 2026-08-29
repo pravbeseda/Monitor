@@ -33,8 +33,15 @@ func Negotiate(query, acceptLanguage string) Locale {
 
 // match accepts a regional tag too: ru-BY is Russian.
 func match(tag string) (Locale, bool) {
-	language, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(tag)), "-")
-	switch Locale(language) {
+	language, _, _ := strings.Cut(tag, "-")
+	return Parse(language)
+}
+
+// Parse reads a locale written by hand — a configuration file, a flag — where a regional
+// tag is a mistake rather than a browser's habit: such a file names one of the two
+// languages the interface speaks, or the hub does not start.
+func Parse(tag string) (Locale, bool) {
+	switch Locale(strings.ToLower(strings.TrimSpace(tag))) {
 	case English:
 		return English, true
 	case Russian:
