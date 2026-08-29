@@ -1,7 +1,8 @@
 # 0006. Alert on transitions; only critical is instant
 
 - **Status:** accepted; the recovery margin is superseded by
-  [0013](0013-relative-hysteresis.md), and where thresholds live is clarified by
+  [0013](0013-relative-hysteresis.md), the delivery of `critical → warning` is amended by
+  [0016](0016-leaving-critical-is-instant.md), and where thresholds live is clarified by
   [0007](0007-public-repository.md)
 - **Date:** 2026-08-28
 - **Source:** [concept](../concept.md), [POC](../poc.md)

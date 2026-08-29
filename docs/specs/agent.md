@@ -86,7 +86,8 @@ lands in the right place in history.
 ## Edge cases
 
 - **The hub is unreachable for hours**: measurements accumulate up to the buffer cap,
-  the oldest going first; the node's silence is the hub's business to detect (stage 2).
+  the oldest going first; the node's silence is the hub's business to detect
+  ([evaluation](evaluation.md#node-silence)).
 - **The clock jumps** (sleep, NTP correction): a sensor is due when its interval has
   elapsed by the monotonic clock, so a jump neither floods the hub nor stalls collection.
 - **A laptop sleeps and wakes**: the first tick after waking finds every sensor due and

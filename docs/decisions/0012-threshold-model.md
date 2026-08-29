@@ -28,7 +28,7 @@ alert when   free < floor                          # threshold
 
 The floor catches any volume that is genuinely close to full, whatever its size. The band
 catches a volume running low proportionally, but only while its absolute headroom is small
-enough to matter — so an 8 TB volume with 1.2 TB free stays silent, a 128 GB volume with
+enough to matter — so an 8 TB volume with 1.1 TB free stays silent, a 128 GB volume with
 19 GB free warns, and any volume with 3 GB free is critical. Recovery negates this whole rule
 with a margin on every comparison, rather than clearing conditions one by one
 ([0013](0013-relative-hysteresis.md)).
@@ -52,9 +52,10 @@ the hub has not seen takes the defaults until it is given its own.
   them — neither can be dropped as redundant.
 - Recovery is the negated rule with a 20% margin on every comparison
   ([0013](0013-relative-hysteresis.md)), not a per-condition clearance: a 128 GB volume
-  leaves warning at 23 GB free through the ratio, an 8 TB volume at 120 GB free through the
-  ceiling. Absolute headroom is what flaps in practice — logs rotate, caches grow and shrink
-  — so the margin on every comparison is not a theoretical nicety.
+  leaves warning at 23.04 GB free through the ratio — 18% of 128 GB — and an 8 TB volume at
+  120 GB free through the ceiling. Absolute headroom is what flaps in practice — logs
+  rotate, caches grow and shrink — so the margin on every comparison is not a theoretical
+  nicety.
 - Forecast-based alerting ("full in ~12 days") is a later addition on top of these
   thresholds, once history is long enough — not a replacement.
 

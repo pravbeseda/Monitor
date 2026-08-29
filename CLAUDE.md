@@ -171,8 +171,11 @@ Each line is an index into the ADR that owns it.
 - **The semantic core is the single source of truth**; the State API carries semantics only,
   never skin-specific fields. Skins are equal consumers of it, and drill-down, `at=` time
   travel and the event stream live outside them. → 0001
-- **Alerts fire on transitions** with hysteresis; critical is instant, warnings batch into a
-  daily digest, unresolved critical repeats at most once a day. → 0006
+- **Alerts fire on transitions** with hysteresis; entering or leaving critical is instant,
+  everything else batches into a daily digest, unresolved critical repeats at most once a
+  day. → 0006, 0016
+- **Evaluation runs on the hub's own tick**, never inside an ingest request: one writer of
+  the event log, and silence, digest and repeat are the same pass. → 0015
 - **Hysteresis is relative**: recovery is the negated entry rule with every comparison
   shifted by 20% of its threshold, whatever the unit. → 0013
 - **Stack**: Go for both binaries, SQLite (`modernc.org/sqlite`, no CGO) behind a `Storage`

@@ -28,8 +28,9 @@ that threshold.**
 | 4 GB free | 4 GB | 4.8 GB |
 
 The margin is a property of the threshold, not of the unit, so it applies unchanged to every
-metric the system will ever carry. For percentage thresholds it reproduces what 0006
-prescribed, so nothing about existing behaviour changes.
+metric the system will ever carry. At the 15% threshold 0006 named it coincides with that
+document's `warn_below + 3`; at any other percentage it differs — 7% recovers at 8.4, not at
+10 — which is what superseding 0006 on this point means.
 
 **Recovery is the negation of the entry rule, with every comparison shifted by the margin.**
 A compound rule ([0012](0012-threshold-model.md)) is not cleared condition by condition: the
@@ -46,7 +47,7 @@ prevents latching:
 
 | Volume | Enters warning at | Leaves at | Why |
 |---|---|---|---|
-| 128 GB | 19 GB free (14.8%) | 23 GB free | the ratio clears at 18% |
+| 128 GB | 19 GB free (14.8%) | 23.04 GB free | the ratio clears at 18%, and 18% of 128 GB is 23.04 GB |
 | 8 TB | 99 GB free (1.2%) | 120 GB free | the ceiling comparison clears first |
 
 The state ends when the **whole rule** stops holding, so no single comparison owns the exit.
@@ -54,8 +55,9 @@ Clearing the floor ends the state if and only if the band is not holding at that
 depends on the size of the volume rather than on which arm caused the entry:
 
 - a 20 GB volume that fell below 10 GB leaves at 12 GB — at 60% free the band is false;
-- a 128 GB volume that fell below 10 GB stays in warning at 12 GB, because the band still
-  holds there (9.4% free, under 120 GB), and leaves at 23 GB like any other 128 GB volume.
+- a 128 GB volume that fell below 10 GB stays in warning at 12 GB, because at that size
+  the rule re-enters — 9.4% is under 15% and 12 GB is under the 100 GB ceiling — so the
+  exit is never reached; it leaves at 23.04 GB like any other 128 GB volume.
 
 Reading it as "every condition that put the state there must clear" is what latches a
 volume: a 128 GB disk would have to reach 120 GB free to clear a 100 GB ceiling, which is an

@@ -37,6 +37,9 @@ The reasoning and the rejected alternatives are in the ADRs; the POC only applie
 - [0011](decisions/0011-quality-gates.md) — the quality gates
 - [0012](decisions/0012-threshold-model.md) — the disk threshold model
 - [0013](decisions/0013-relative-hysteresis.md) — how a state recovers
+- [0014](decisions/0014-macos-available-space.md) — what "free space" means
+- [0015](decisions/0015-evaluation-on-a-tick.md) — evaluation runs on its own tick
+- [0016](decisions/0016-leaving-critical-is-instant.md) — leaving critical is instant
 
 ## Wire format
 
@@ -66,17 +69,22 @@ The shape of that response belongs in the ingest spec.
 Thresholds and node classes are declared in the hub's YAML configuration, never hard-coded
 in the evaluation logic; product defaults apply where that file says nothing
 ([0007](decisions/0007-public-repository.md)). The deployment file itself lives on the server
-and is not part of this repository, which ships only an example:
+and is not part of this repository, which ships only `config.example.yaml`. The full key
+set lives in [hub-config](specs/hub-config.md) and [evaluation](specs/evaluation.md):
 
 ```yaml
-metrics:
-  disk.free_pct:
-    direction: higher_is_better
-    warn_below: 15
-    crit_below: 7
+rules:
+  disk:
+    warning:  { floor: 10GB, ratio: 15, ceiling: 100GB }
+    critical: { floor: 4GB,  ratio: 7,  ceiling: 40GB }
+
+classes:
+  laptop: { silence_after: 48h }
+  server: { silence_after: 10m }
+
 nodes:
-  laptop-a: { class: laptop, silence_after: 48h }
-  server-b: { class: server, silence_after: 10m }
+  laptop-a: { class: laptop, token_env: MONITOR_TOKEN_LAPTOP_A }
+  server-b: { class: server, token_env: MONITOR_TOKEN_SERVER_B }
 ```
 
 ## Work plan
@@ -88,12 +96,16 @@ nodes:
 - [x] Hub: `/api/v1/ingest`, write to SQLite, page `/` with the latest values
 - [x] Collection intervals travel in the ingest response, keyed off `config_version`
       ([0010](decisions/0010-agent-configuration.md))
-- [ ] Run by hand on one laptop and one server
+- [x] Run by hand on one laptop and one server
 
 **Stage 2 — evaluation and alerts**
-- [ ] YAML config for metrics and nodes; threshold engine with hysteresis
-- [ ] State and transition tables (event log)
-- [ ] Telegram notifier and silence detector
+- [ ] Evaluation on its own tick ([0015](decisions/0015-evaluation-on-a-tick.md)): `rules`
+      in the hub's YAML, levels with the relative hysteresis of
+      [0013](decisions/0013-relative-hysteresis.md), stale subjects frozen
+      ([evaluation spec](specs/evaluation.md))
+- [ ] `states` and `events` tables: one event per transition, read back after a restart
+- [ ] Notifier behind an interface (log and Telegram), silence detector, the instant rule
+      of [0016](decisions/0016-leaving-critical-is-instant.md), daily digest
 
 **Stage 3 — operation**
 - [ ] systemd and launchd units, agent install script

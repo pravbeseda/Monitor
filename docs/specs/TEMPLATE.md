@@ -17,7 +17,7 @@ can produce, an outcome the caller can see.
 |---|---|---|---|
 | ok | free_pct 14 | warning | queued into digest |
 | warning | free_pct 6 | critical | notify immediately |
-| critical | free_pct 9 | critical | none (hysteresis) |
+| critical | free_pct 8 | critical | none (hysteresis: 7% clears at 8.4%) |
 | critical | free_pct 18 | ok | notify recovery |
 
 Anchor each group of rows with a heading so tests can cite it (`spec: thresholds.md#hysteresis`).

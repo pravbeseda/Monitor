@@ -15,9 +15,10 @@ authenticates with, and a flat per-node configuration with a version, which
 [0010](../decisions/0010-agent-configuration.md) — sensor default → node class → node —
 so that nothing downstream merges anything.
 
-It does not evaluate: thresholds and silence windows are read from the same file but
-belong to the evaluation engine (stage 2), which gets its own spec: until it exists,
-`metrics` and volume roles are unknown keys and the hub refuses to start on them.
+It does not evaluate: the `rules`, `digest` and `notify` keys, volume roles and the
+meaning of `silence_after` belong to [evaluation](evaluation.md). Until that spec's code
+ships the hub knows none of those keys and refuses to start on them, like any unknown key
+(see [Startup](#startup)). This spec owns only the tokens and what reaches an agent.
 
 ## The file
 
@@ -175,7 +176,7 @@ logs both versions when it delivers a new one.
 
 ## Out of scope
 
-- Thresholds, volume roles and `silence_after` semantics → evaluation spec (stage 2),
+- Thresholds, volume roles and `silence_after` semantics → [evaluation](evaluation.md),
   [0012](../decisions/0012-threshold-model.md).
 - How the resolved configuration is encoded and when it is sent → [ingest](ingest.md).
 - Applying the configuration on the agent → agent spec.
