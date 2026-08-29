@@ -149,12 +149,14 @@ carried to two decimals, as the sensor reports it ([disk-sensor.md](disk-sensor.
 | ok | 40 GB, 31.25% | ok | neither arm holds |
 | ok | exactly 10 GB on a 40 GB volume, 25.00% | ok | the floor comparison is strict, and 25% is above the ratio |
 | ok | 19 GB, 14.84% | warning | band: under 15% and under the 100 GB ceiling |
+| ok | 19.2 GB, 15.00% | ok | the ratio comparison is strict |
 | ok | 9 GB on a 20 GB volume, 45.00% | warning | floor: under 10 GB, whatever the percentage |
 | ok | 99 GB on an 8 TB volume, 1.24% | warning | the warning band holds, and 99 GB is above the 40 GB critical ceiling, so it is not critical |
 | ok | 1.1 TB on an 8 TB volume, 13.75% | ok | under the ratio, so only the ceiling can decide, and 1.1 TB is above it |
 | ok | 5 GB, 3.91% | critical | the critical band alone: under 7% and under the 40 GB ceiling |
 | ok | exactly 4 GB on a 40 GB volume, 10.00% | warning | the critical floor is strict, and 10% is above the critical ratio |
 | ok | 45 GB on a 900 GB volume, 5.00% | warning | under the critical ratio but above the 40 GB critical ceiling |
+| ok | 40 GB on a 1 TB volume, 4.00% | warning | the ceiling comparison is strict, so the critical band does not hold |
 | ok | 3 GB, 2.34% | critical | both critical arms hold |
 | warning | 3 GB, 2.34% | critical | the more severe level wins immediately |
 | ok | 0 GB, 0.00% | critical | a full volume is critical, not an error |
@@ -172,6 +174,7 @@ carried to two decimals, as the sensor reports it ([disk-sensor.md](disk-sensor.
 | warning | 12 GB on a 128 GB volume, 9.38% | warning | the rule re-enters at that size, so no exit is considered: clearing the floor is not clearing the rule |
 | warning | 120 GB on an 8 TB volume, 1.50% | ok | the ceiling comparison clears first |
 | critical | 4.5 GB on a 45 GB volume, 10.00% | critical | only the 4.8 GB floor margin holds it: the band cleared at 8.4% |
+| warning | 4.5 GB on a 45 GB volume, 10.00% | warning | hysteresis holds a level, it never raises one |
 | critical | 6 GB on a 20 GB volume, 30.00% | warning | clears critical, still under the warning floor |
 | critical | 24 GB, 18.75% | ok | clears both levels in one tick |
 
@@ -345,6 +348,7 @@ volume, and on every class the file introduces, whether or not a node uses it.
 | a rule name no rule reads | startup error naming the rule: an unknown map key is not caught by the unknown-field check |
 | a resolved rule whose critical `floor`, `ratio` or `ceiling` is above the warning value for the same field | startup error naming node, volume and field |
 | `ratio` or `ceiling` under a `backup` branch | startup error: a backup rule is a floor |
+| a `ratio` without a `ceiling`, or a `ceiling` without a `ratio` | startup error naming the rule: a band needs both, and half of one would be ignored in silence |
 | `role` other than `backup` | startup error naming node and mount |
 | `digest.at` not `HH:MM`, or a timezone the system's zone database does not carry | startup error naming the key |
 | `notify.locale` outside `en`, `ru`; `notify.channel` outside `log`, `telegram` | startup error naming the key |
