@@ -80,6 +80,10 @@ func TestLoadRejects(t *testing.T) {
 			"\nclasses:\n  cluster:\n    silence_after: 10m\n    base_tick: soon\n", "cluster"},
 		{"a class no node uses, without silence_after", minimal +
 			"\nclasses:\n  cluster:\n    profile: [disk]\n", "cluster"},
+		{"a profile naming a sensor with no interval, on a class no node uses", minimal +
+			"\nclasses:\n  cluster:\n    silence_after: 10m\n    profile: [batery]\n", "batery"},
+		{"a class no node uses whose sensor collects below the base tick", minimal +
+			"\nclasses:\n  cluster:\n    silence_after: 10m\n    sensors:\n      disk: { interval: 1m }\n", "disk"},
 		{"a sensor default no profile delivers", minimal +
 			"\nsensors:\n  battery: { interval: 5x }\n", "battery"},
 		{"an empty allow-list on a class no node uses", minimal +
