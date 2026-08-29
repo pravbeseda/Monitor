@@ -82,8 +82,6 @@ func TestLoadRejects(t *testing.T) {
 			"\nclasses:\n  cluster:\n    profile: [disk]\n", "cluster"},
 		{"a profile naming a sensor with no interval, on a class no node uses", minimal +
 			"\nclasses:\n  cluster:\n    silence_after: 10m\n    profile: [batery]\n", "batery"},
-		{"a class no node uses whose sensor collects below the base tick", minimal +
-			"\nclasses:\n  cluster:\n    silence_after: 10m\n    sensors:\n      disk: { interval: 1m }\n", "disk"},
 		{"a sensor default no profile delivers", minimal +
 			"\nsensors:\n  battery: { interval: 5x }\n", "battery"},
 		{"an empty allow-list on a class no node uses", minimal +
@@ -99,6 +97,55 @@ func TestLoadRejects(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("error = %q, want it to name %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// spec: hub-config.md#resolution — a layer is not required to stand alone: what looks too
+// fast at one layer can be right once a more specific layer lowers the tick.
+func TestLoadAcceptsWhatOnlyAMoreSpecificLayerMakesValid(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"the classes lower the tick under a top-level interval", `
+base_tick: 5m
+sensors:
+  disk: { interval: 1m }
+classes:
+  laptop:
+    base_tick: 30s
+  server:
+    base_tick: 30s
+nodes:
+  laptop-a:
+    class: laptop
+    token_env: MONITOR_TOKEN_LAPTOP_A
+`},
+		{"the node collects above a tick its class lowered", `
+classes:
+  fast:
+    profile: [disk]
+    silence_after: 10m
+    base_tick: 1m
+    sensors:
+      disk: { interval: 1m }
+nodes:
+  laptop-a:
+    class: fast
+    token_env: MONITOR_TOKEN_LAPTOP_A
+    sensors:
+      disk: { interval: 2m }
+`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(tokenEnv, token)
+
+			if _, err := config.Load(write(t, tc.body)); err != nil {
+				t.Fatalf("Load refused a configuration it resolves: %v", err)
 			}
 		})
 	}

@@ -6,7 +6,7 @@ import "fmt"
 // class or a sensor default nobody uses yet still has to be right, or the typo surfaces
 // days later, on a running hub, the moment it is wired to a node.
 func validate(f file) error {
-	if err := validateLayer(f, "", f.BaseTick, f.Filesystems, f.Sensors); err != nil {
+	if err := validateLayer("", f.BaseTick, f.Filesystems, f.Sensors); err != nil {
 		return err
 	}
 
@@ -18,7 +18,7 @@ func validate(f file) error {
 
 	for _, name := range sorted(f.Nodes) {
 		node := f.Nodes[name]
-		if err := validateLayer(f, fmt.Sprintf("node %s: ", name), node.BaseTick, node.Filesystems, node.Sensors); err != nil {
+		if err := validateLayer(fmt.Sprintf("node %s: ", name), node.BaseTick, node.Filesystems, node.Sensors); err != nil {
 			return err
 		}
 	}
@@ -32,7 +32,7 @@ func validateClass(f file, name string) error {
 	builtin, custom, _ := classLayers(f, name)
 	where := fmt.Sprintf("class %s: ", name)
 
-	if err := validateLayer(f, where, custom.BaseTick, custom.Filesystems, custom.Sensors); err != nil {
+	if err := validateLayer(where, custom.BaseTick, custom.Filesystems, custom.Sensors); err != nil {
 		return err
 	}
 	if _, compiledIn := defaultClasses[name]; !compiledIn && custom.SilenceAfter == "" {
@@ -47,12 +47,12 @@ func validateClass(f file, name string) error {
 
 	// The node layer is missing here on purpose: a node adds its own sensors and is
 	// checked when it is resolved. What the class alone promises has to hold already.
-	baseTick, err := duration(where+"base_tick", last(defaultBaseTick, f.BaseTick, custom.BaseTick))
-	if err != nil {
-		return err
-	}
+	//
+	// The tick is not compared with the intervals here: a node may lower base_tick, so an
+	// interval that looks too short at this layer can be right once the node is resolved.
+	// That comparison belongs to resolve, where the tick is final.
 	profile := lastList(builtin.Profile, custom.Profile)
-	if _, err := resolveSensors(profile, baseTick,
+	if _, err := sensorSettings(profile,
 		defaultSensors, builtin.Sensors, f.Sensors, custom.Sensors); err != nil {
 		return fmt.Errorf("%s%w", where, err)
 	}
@@ -71,29 +71,23 @@ func classNames(f file) []string {
 	return sorted(names)
 }
 
-// validateLayer checks what every layer may set: a tick, an allow-list and sensor
-// intervals. An absent value is fine; a present one has to be usable at this layer, which
-// includes collecting no faster than the tick this layer sees.
-func validateLayer(f file, where, baseTick string, filesystems []string, sensors map[string]fileSensor) error {
-	tick, err := duration(where+"base_tick", last(defaultBaseTick, f.BaseTick, baseTick))
-	if err != nil {
-		return err
+// validateLayer checks what a layer sets on its own terms only. A layer above may lower
+// the base tick or replace a list, so nothing here compares one layer's value with
+// another's: an intermediate layer is not required to stand alone.
+func validateLayer(where, baseTick string, filesystems []string, sensors map[string]fileSensor) error {
+	if baseTick != "" {
+		if _, err := duration(where+"base_tick", baseTick); err != nil {
+			return err
+		}
 	}
 	if filesystems != nil && len(filesystems) == 0 {
 		return fmt.Errorf("%sfilesystems is empty, so no volume would be collected", where)
 	}
 	for _, name := range sorted(sensors) {
-		declared := sensors[name].Interval
-		if declared == "" {
-			continue
-		}
-		key := fmt.Sprintf("%ssensor %s: interval", where, name)
-		interval, err := duration(key, declared)
-		if err != nil {
-			return err
-		}
-		if interval < tick {
-			return fmt.Errorf("%s: %v is below the base tick %v", key, interval, tick)
+		if declared := sensors[name].Interval; declared != "" {
+			if _, err := duration(fmt.Sprintf("%ssensor %s: interval", where, name), declared); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

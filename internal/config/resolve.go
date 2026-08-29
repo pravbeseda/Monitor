@@ -72,9 +72,26 @@ func classLayers(f file, name string) (builtin, custom fileClass, known bool) {
 	return builtin, custom, inCode || inFile
 }
 
-// resolveSensors flattens the sensor layers, lowest first. A sensor is delivered when its
-// class profile contains it or when some layer names it explicitly.
+// resolveSensors is sensorSettings plus the one check that needs a final base tick: a
+// sensor cannot collect faster than the tick that carries it. Only a fully resolved node
+// has that tick, since every layer above may lower it.
 func resolveSensors(profile []string, baseTick time.Duration, layers ...map[string]fileSensor) (map[string]Sensor, error) {
+	sensors, err := sensorSettings(profile, layers...)
+	if err != nil {
+		return nil, err
+	}
+	for _, name := range sorted(sensors) {
+		if sensors[name].Interval < baseTick {
+			return nil, fmt.Errorf("sensor %s: interval %v is below the base tick %v",
+				name, sensors[name].Interval, baseTick)
+		}
+	}
+	return sensors, nil
+}
+
+// sensorSettings flattens the sensor layers, lowest first. A sensor is delivered when its
+// class profile contains it or when some layer names it explicitly.
+func sensorSettings(profile []string, layers ...map[string]fileSensor) (map[string]Sensor, error) {
 	intervals := map[string]string{}
 	enabled := map[string]bool{}
 	for _, layer := range layers {
@@ -101,9 +118,6 @@ func resolveSensors(profile []string, baseTick time.Duration, layers ...map[stri
 		interval, err := duration(fmt.Sprintf("sensor %s: interval", sensor), intervals[sensor])
 		if err != nil {
 			return nil, err
-		}
-		if interval < baseTick {
-			return nil, fmt.Errorf("sensor %s: interval %v is below the base tick %v", sensor, interval, baseTick)
 		}
 		on, set := enabled[sensor]
 		out[sensor] = Sensor{Enabled: !set || on, Interval: interval}

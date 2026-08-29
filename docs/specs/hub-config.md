@@ -95,7 +95,7 @@ One row = one test. Anchors: `spec: hub-config.md#<heading>`.
 | a node whose `class` is neither compiled in nor in the file | startup error naming node and class |
 | a class the file introduces without `silence_after` | startup error naming the class: a silence window is a deployment setting |
 | a duration that Go cannot parse, or that is zero or negative | startup error naming the key |
-| a sensor interval below `base_tick` | startup error: a sensor collects above the tick |
+| a sensor interval below the `base_tick` a node resolves to | startup error: a sensor collects above the tick |
 | `filesystems` present and empty | startup error: no volume would ever be collected |
 | a sensor in a profile with no interval at any layer | startup error naming the sensor, whether or not a node uses that class |
 | a valid file | the hub starts and every listed node resolves |
@@ -150,9 +150,13 @@ logs both versions when it delivers a new one.
 - No deployment setting has a fallback: the hub either starts fully configured or does not
   start ([0007](../decisions/0007-public-repository.md)).
 - The whole file is validated, not only the parts a node references: every layer's
-  durations, allow-lists and sensor intervals, and every class down to the sensors its
-  profile promises — a class nobody uses yet is resolved as if a node did. A typo surfaces
-  at startup, not on the day the class is wired to a node.
+  durations and allow-lists, and every class down to the sensors its profile promises — a
+  class nobody uses yet is resolved as if a node did, so a typo surfaces at startup rather
+  than on the day the class is wired to a node.
+- No check compares one layer with another. A more specific layer may lower the base tick
+  or replace a list, so an intermediate layer is not required to stand alone; the one
+  comparison that needs a final tick — a sensor collecting faster than it — is made on the
+  resolved node.
 - The file is read once, at startup: nothing re-reads it while the hub runs.
 
 ## Edge cases
