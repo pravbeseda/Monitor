@@ -53,6 +53,7 @@ Reasoning from working sessions, including options that were rejected.
 | Date | Topic |
 |---|---|
 | [2026-08-28](log/2026-08-28-concept.md) | Project start: visual concepts, architecture, naming |
+| [2026-08-29](log/2026-08-29-stage-1-decisions.md) | Stage 1: locale negotiation, one wire package, what the live run caught |
 
 ## Not written yet
 
