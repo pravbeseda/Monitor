@@ -2,9 +2,15 @@ package disk
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"golang.org/x/sys/unix"
 )
+
+// appleDisk matches the whole-disk part of a device name: every volume of one APFS
+// container sits on the same diskN and shares its free space.
+var appleDisk = regexp.MustCompile(`^disk[0-9]+`)
 
 // systemSource reads the real mount table through statfs(2).
 type systemSource struct{}
@@ -29,9 +35,19 @@ func (systemSource) Mounts() ([]Mount, error) {
 			Path:      unix.ByteSliceToString(stat.Mntonname[:]),
 			FS:        unix.ByteSliceToString(stat.Fstypename[:]),
 			Removable: stat.Flags&unix.MNT_REMOVABLE != 0,
+			Container: container(unix.ByteSliceToString(stat.Mntfromname[:])),
 		})
 	}
 	return mounts, nil
+}
+
+// container is the whole disk behind a volume, or empty for anything not on one.
+func container(device string) string {
+	name, found := strings.CutPrefix(device, "/dev/")
+	if !found {
+		return ""
+	}
+	return appleDisk.FindString(name)
 }
 
 func (systemSource) Usage(mount string) (Usage, error) {

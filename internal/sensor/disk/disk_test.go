@@ -32,7 +32,12 @@ func (f fake) Usage(mount string) (disk.Usage, error) {
 
 func collect(t *testing.T, source disk.Source, allowed ...string) []sensor.Measurement {
 	t.Helper()
-	s := disk.New(source, func() []string { return allowed }, func() time.Time { return collected })
+	return collectWith(t, source, disk.Settings{Filesystems: allowed})
+}
+
+func collectWith(t *testing.T, source disk.Source, settings disk.Settings) []sensor.Measurement {
+	t.Helper()
+	s := disk.New(source, func() disk.Settings { return settings }, func() time.Time { return collected })
 	got, err := s.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("Collect: %v", err)
@@ -123,7 +128,7 @@ func TestKeepsCollectingAfterAnUnreadableVolume(t *testing.T) {
 // spec: disk-sensor.md#enumeration — the mount table itself failing is an error.
 func TestReportsUnreadableMountTable(t *testing.T) {
 	s := disk.New(fake{err: errors.New("no mount table")},
-		func() []string { return []string{"apfs"} }, time.Now)
+		func() disk.Settings { return disk.Settings{Filesystems: []string{"apfs"}} }, time.Now)
 
 	got, err := s.Collect(context.Background())
 
@@ -173,7 +178,7 @@ func TestInternalVolumeIsLabelledNotRemovable(t *testing.T) {
 
 // spec: disk-sensor.md#applicability
 func TestSensorIsApplicableEverywhere(t *testing.T) {
-	s := disk.New(internalRoot, func() []string { return nil }, time.Now)
+	s := disk.New(internalRoot, func() disk.Settings { return disk.Settings{} }, time.Now)
 
 	if s.Name() != "disk" || !s.Applicable() {
 		t.Errorf("manifest entry = %q applicable=%v, want disk applicable", s.Name(), s.Applicable())
@@ -190,5 +195,82 @@ func TestFreePercentIsRoundedToTwoDecimals(t *testing.T) {
 
 	if len(pct) != 1 || pct[0].Value != 33.33 {
 		t.Errorf("free_pct = %+v, want 33.33", pct)
+	}
+}
+
+// spec: disk-sensor.md#enumeration — the hub's skip list names what is not worth watching.
+func TestSkipsMountsUnderASkippedPrefix(t *testing.T) {
+	source := fake{
+		mounts: []disk.Mount{
+			{Path: "/", FS: "apfs", Container: "disk3"},
+			{Path: "/System/Volumes/Hardware", FS: "apfs", Container: "disk1"},
+		},
+		usage: map[string]disk.Usage{
+			"/":                        {TotalBytes: 1000, AvailBytes: 250},
+			"/System/Volumes/Hardware": {TotalBytes: 100, AvailBytes: 50},
+		},
+	}
+
+	got := collectWith(t, source, disk.Settings{
+		Filesystems: []string{"apfs"},
+		SkipMounts:  []string{"/System/Volumes/"},
+	})
+
+	if len(got) != 2 {
+		t.Fatalf("measurements = %+v, want only the root volume", got)
+	}
+	for _, m := range got {
+		if m.Labels["mount"] != "/" {
+			t.Errorf("collected %+v, want the skipped prefix left out", m)
+		}
+	}
+}
+
+// spec: disk-sensor.md#enumeration — volumes of one container report the same free space,
+// so the shortest mount point stands for all of them.
+func TestKeepsOneVolumePerContainer(t *testing.T) {
+	source := fake{
+		mounts: []disk.Mount{
+			{Path: "/Volumes/backup-a", FS: "apfs", Container: "disk5", Removable: true},
+			{Path: "/Volumes/data-a", FS: "apfs", Container: "disk5", Removable: true},
+			{Path: "/", FS: "apfs", Container: "disk3"},
+		},
+		usage: map[string]disk.Usage{
+			"/Volumes/backup-a": {TotalBytes: 4000, AvailBytes: 130},
+			"/Volumes/data-a":   {TotalBytes: 4000, AvailBytes: 130},
+			"/":                 {TotalBytes: 1000, AvailBytes: 250},
+		},
+	}
+
+	got := collectWith(t, source, disk.Settings{Filesystems: []string{"apfs"}})
+
+	mounts := map[string]bool{}
+	for _, m := range got {
+		mounts[m.Labels["mount"]] = true
+	}
+	if len(mounts) != 2 || !mounts["/"] || !mounts["/Volumes/data-a"] {
+		t.Errorf("mounts = %v, want the root and the shortest mount of the container", mounts)
+	}
+}
+
+// A container whose volumes cannot be told apart by length is still resolved the same way
+// on every collection, or a series would change identity between ticks.
+func TestContainerChoiceIsStable(t *testing.T) {
+	source := fake{
+		mounts: []disk.Mount{
+			{Path: "/Volumes/bbb", FS: "apfs", Container: "disk5"},
+			{Path: "/Volumes/aaa", FS: "apfs", Container: "disk5"},
+		},
+		usage: map[string]disk.Usage{
+			"/Volumes/bbb": {TotalBytes: 4000, AvailBytes: 130},
+			"/Volumes/aaa": {TotalBytes: 4000, AvailBytes: 130},
+		},
+	}
+
+	for range 3 {
+		got := collectWith(t, source, disk.Settings{Filesystems: []string{"apfs"}})
+		if len(got) != 2 || got[0].Labels["mount"] != "/Volumes/aaa" {
+			t.Fatalf("measurements = %+v, want /Volumes/aaa every time", got)
+		}
 	}
 }

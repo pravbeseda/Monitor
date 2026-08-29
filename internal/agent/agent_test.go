@@ -80,6 +80,7 @@ func configure(version string, baseTick string, sensors map[string]api.SensorCon
 		Config: &api.AgentConfig{
 			BaseTick:    baseTick,
 			Filesystems: []string{"apfs"},
+			SkipMounts:  []string{"/System/Volumes/"},
 			Sensors:     sensors,
 		},
 	}
@@ -320,6 +321,9 @@ func TestAppliesConfigurationAndKeepsItUntilItChanges(t *testing.T) {
 	}
 	if fs := a.Filesystems(); len(fs) != 1 || fs[0] != "apfs" {
 		t.Errorf("filesystems = %v, want the configured allow-list", fs)
+	}
+	if skip := a.SkipMounts(); len(skip) != 1 || skip[0] != "/System/Volumes/" {
+		t.Errorf("skip_mounts = %v, want the configured skip list", skip)
 	}
 
 	c.advance(10 * time.Minute)

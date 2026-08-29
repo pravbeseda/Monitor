@@ -52,6 +52,7 @@ type Agent struct {
 type configuration struct {
 	baseTick    time.Duration
 	filesystems []string
+	skipMounts  []string
 	sensors     map[string]sensorSetting
 }
 
@@ -77,6 +78,9 @@ func (a *Agent) BaseTick() time.Duration { return a.config.baseTick }
 
 // Filesystems is the allow-list the disk sensor reads on every collection.
 func (a *Agent) Filesystems() []string { return a.config.filesystems }
+
+// SkipMounts are the mount-point prefixes the disk sensor leaves alone.
+func (a *Agent) SkipMounts() []string { return a.config.skipMounts }
 
 // Run ticks until the context ends.
 func (a *Agent) Run(ctx context.Context) error {
@@ -196,6 +200,7 @@ func parse(delivered api.AgentConfig) (configuration, error) {
 	out := configuration{
 		baseTick:    baseTick,
 		filesystems: delivered.Filesystems,
+		skipMounts:  delivered.SkipMounts,
 		sensors:     make(map[string]sensorSetting, len(delivered.Sensors)),
 	}
 	for name, s := range delivered.Sensors {

@@ -38,6 +38,7 @@ func (systemSource) Mounts() ([]Mount, error) {
 			Path:      unescape(fields[1]),
 			FS:        fields[2],
 			Removable: removable(fields[0]),
+			Container: container(fields[0]),
 		})
 	}
 	if err := lines.Err(); err != nil {
@@ -53,6 +54,15 @@ func (systemSource) Usage(mount string) (Usage, error) {
 	}
 	size := uint64(stat.Bsize)
 	return Usage{TotalBytes: stat.Blocks * size, AvailBytes: stat.Bavail * size}, nil
+}
+
+// container groups what shares one pool of free space: bind mounts and btrfs subvolumes
+// of one device, which all report the same figures.
+func container(device string) string {
+	if !strings.HasPrefix(device, "/dev/") {
+		return ""
+	}
+	return device
 }
 
 // removable asks the kernel, not the mount point: an internal disk mounted under /mnt is

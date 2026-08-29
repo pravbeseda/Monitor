@@ -48,6 +48,7 @@ type Response struct {
 type AgentConfig struct {
 	BaseTick    string                  `json:"base_tick"`
 	Filesystems []string                `json:"filesystems"`
+	SkipMounts  []string                `json:"skip_mounts"`
 	Sensors     map[string]SensorConfig `json:"sensors"`
 }
 
@@ -67,6 +68,7 @@ func Deliver(agent config.Agent) *AgentConfig {
 	out := &AgentConfig{
 		BaseTick:    FormatDuration(agent.BaseTick),
 		Filesystems: agent.Filesystems,
+		SkipMounts:  agent.SkipMounts,
 		Sensors:     make(map[string]SensorConfig, len(agent.Sensors)),
 	}
 	for name, sensor := range agent.Sensors {

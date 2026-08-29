@@ -36,6 +36,26 @@ bytes: a pointer to a nil slice is non-nil.
 The lesson is recorded here rather than in a spec: where a contract is about bytes, at
 least one test has to look at the bytes.
 
+## Fifteen volumes, two of which are volumes
+
+The first Mac the agent ran on reported fifteen volumes: seven of one APFS container that
+all show the same free space, three of the external drive's container, two simulator
+images, and the two an operator would name. Stage 2 would have sent seven identical alerts
+for one full disk.
+
+The sensor now keeps one volume per container — the shortest mount point, which is the one
+a person recognises — and skips the mount prefixes the hub's `skip_mounts` names, a product
+default of `/System/Volumes/` and `/Library/Developer/CoreSimulator/`. Rejected:
+
+- **The skip list alone** — one setting instead of two, but the three volumes of the
+  external drive stay three rows, and `/System/Volumes/Data` would have to be skipped by
+  hand, which is one typo away from losing the volume that actually holds the data.
+- **Collapsing containers alone** — no configuration at all, but the simulator images are
+  their own containers and would survive.
+- **Collecting everything and hiding it on the page** — the history stays complete and the
+  choice reversible, at the price of seven times the rows for one fact, and stage 2 would
+  still evaluate all of them.
+
 ## Deferred deliberately
 
 - **Threshold sections in the hub's configuration** (`metrics`, volume roles) stay unknown

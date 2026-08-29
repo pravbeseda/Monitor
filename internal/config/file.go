@@ -6,6 +6,7 @@ package config
 type file struct {
 	BaseTick    string                `yaml:"base_tick"`
 	Filesystems []string              `yaml:"filesystems"`
+	SkipMounts  []string              `yaml:"skip_mounts"`
 	Sensors     map[string]fileSensor `yaml:"sensors"`
 	Classes     map[string]fileClass  `yaml:"classes"`
 	Nodes       map[string]fileNode   `yaml:"nodes"`
@@ -21,6 +22,7 @@ type fileClass struct {
 	SilenceAfter string                `yaml:"silence_after"`
 	BaseTick     string                `yaml:"base_tick"`
 	Filesystems  []string              `yaml:"filesystems"`
+	SkipMounts   []string              `yaml:"skip_mounts"`
 	Sensors      map[string]fileSensor `yaml:"sensors"`
 }
 
@@ -29,5 +31,6 @@ type fileNode struct {
 	TokenEnv    string                `yaml:"token_env"`
 	BaseTick    string                `yaml:"base_tick"`
 	Filesystems []string              `yaml:"filesystems"`
+	SkipMounts  []string              `yaml:"skip_mounts"`
 	Sensors     map[string]fileSensor `yaml:"sensors"`
 }

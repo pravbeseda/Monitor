@@ -24,6 +24,9 @@ type Mount struct {
 	Path      string
 	FS        string
 	Removable bool
+	// Container groups volumes that share one pool of free space: an APFS container, a
+	// device with bind mounts. Empty means the mount stands alone.
+	Container string
 }
 
 // Usage is what one volume reports about its size. Available excludes the blocks a
@@ -39,20 +42,28 @@ type Source interface {
 	Usage(mount string) (Usage, error)
 }
 
-// Sensor reads free space per volume. The allow-list comes from the hub and changes
-// while the agent runs, so it is read through a function rather than copied once.
+// Settings are the parts of the hub's configuration this sensor acts on.
+type Settings struct {
+	// Filesystems is the allow-list of filesystem types; nothing else is collected.
+	Filesystems []string
+	// SkipMounts are mount-point prefixes not worth watching.
+	SkipMounts []string
+}
+
+// Sensor reads free space per volume. Its settings come from the hub and change while the
+// agent runs, so they are read through a function rather than copied once.
 type Sensor struct {
-	source  Source
-	allowed func() []string
-	now     func() time.Time
+	source   Source
+	settings func() Settings
+	now      func() time.Time
 }
 
 var _ sensor.Sensor = (*Sensor)(nil)
 
-// New builds the sensor over a mount source, the current filesystem allow-list and the
+// New builds the sensor over a mount source, the settings the hub last delivered and the
 // agent's clock.
-func New(source Source, allowed func() []string, now func() time.Time) *Sensor {
-	return &Sensor{source: source, allowed: allowed, now: now}
+func New(source Source, settings func() Settings, now func() time.Time) *Sensor {
+	return &Sensor{source: source, settings: settings, now: now}
 }
 
 // Name is the sensor id the configuration and the manifest use.
@@ -69,25 +80,18 @@ func (s *Sensor) Collect(context.Context) ([]sensor.Measurement, error) {
 		return nil, fmt.Errorf("read the mount table: %w", err)
 	}
 
-	allowed := make(map[string]bool)
-	for _, fs := range s.allowed() {
-		allowed[strings.ToLower(fs)] = true
-	}
+	settings := s.settings()
 
 	at := s.now()
 	var out []sensor.Measurement
-	for _, mount := range mounts {
-		fs := strings.ToLower(mount.FS)
-		if !allowed[fs] {
-			continue
-		}
+	for _, mount := range representatives(watched(mounts, settings)) {
 		usage, err := s.source.Usage(mount.Path)
 		if err != nil || usage.TotalBytes == 0 {
 			continue
 		}
 		labels := map[string]string{
 			"mount":     mount.Path,
-			"fs":        fs,
+			"fs":        strings.ToLower(mount.FS),
 			"removable": strconv.FormatBool(mount.Removable),
 		}
 		free := float64(usage.AvailBytes)
@@ -97,6 +101,62 @@ func (s *Sensor) Collect(context.Context) ([]sensor.Measurement, error) {
 			measurement(metricFreePct, labels, percent, at))
 	}
 	return out, nil
+}
+
+// watched keeps the volumes worth reading: the filesystem type is on the hub's allow-list
+// and the mount point is not under a skipped prefix.
+func watched(mounts []Mount, settings Settings) []Mount {
+	allowed := make(map[string]bool, len(settings.Filesystems))
+	for _, fs := range settings.Filesystems {
+		allowed[strings.ToLower(fs)] = true
+	}
+
+	kept := make([]Mount, 0, len(mounts))
+	for _, mount := range mounts {
+		if allowed[strings.ToLower(mount.FS)] && !skipped(mount.Path, settings.SkipMounts) {
+			kept = append(kept, mount)
+		}
+	}
+	return kept
+}
+
+// representatives keeps one volume per container: the shortest mount point, and the first
+// alphabetically when two are equally short, so the choice is the same on every collection.
+func representatives(mounts []Mount) []Mount {
+	kept := make([]Mount, 0, len(mounts))
+	byContainer := map[string]int{}
+	for _, mount := range mounts {
+		if mount.Container == "" {
+			kept = append(kept, mount)
+			continue
+		}
+		at, seen := byContainer[mount.Container]
+		if !seen {
+			byContainer[mount.Container] = len(kept)
+			kept = append(kept, mount)
+			continue
+		}
+		if shorter(mount.Path, kept[at].Path) {
+			kept[at] = mount
+		}
+	}
+	return kept
+}
+
+func skipped(path string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func shorter(candidate, current string) bool {
+	if len(candidate) != len(current) {
+		return len(candidate) < len(current)
+	}
+	return candidate < current
 }
 
 func measurement(metric string, labels map[string]string, value float64, at time.Time) sensor.Measurement {

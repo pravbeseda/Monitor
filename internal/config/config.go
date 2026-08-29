@@ -28,7 +28,9 @@ type Sensor struct {
 type Agent struct {
 	BaseTick    time.Duration
 	Filesystems []string
-	Sensors     map[string]Sensor
+	// SkipMounts are mount-point prefixes the disk sensor leaves alone.
+	SkipMounts []string
+	Sensors    map[string]Sensor
 }
 
 // Node is everything the hub knows about one node.

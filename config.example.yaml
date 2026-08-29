@@ -8,6 +8,9 @@
 base_tick: 5m
 filesystems: [apfs, ext4, xfs, btrfs, zfs, ntfs]
 
+# Mount points not worth watching. An empty list watches everything the allow-list admits.
+skip_mounts: ["/System/Volumes/", "/Library/Developer/CoreSimulator/"]
+
 sensors:
   disk: { interval: 15m }
 

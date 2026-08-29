@@ -62,6 +62,7 @@ Authorization: Bearer <per-node token>
   "config": {
     "base_tick": "5m",
     "filesystems": ["apfs", "ext4", "xfs", "btrfs", "zfs", "ntfs"],
+    "skip_mounts": ["/System/Volumes/", "/Library/Developer/CoreSimulator/"],
     "sensors": {
       "disk": { "enabled": true, "interval": "15m" }
     }
@@ -75,7 +76,7 @@ Authorization: Bearer <per-node token>
   (sensor default → node class → node → sensor): the hub resolves layers, the agent
   applies what it receives and never merges anything.
 - The config carries only what the agent acts on: tick, sensor selection, intervals,
-  filesystem allow-list. Thresholds stay on the hub — evaluation is hub-side
+  filesystem allow-list, and the mount prefixes to skip. Thresholds stay on the hub — evaluation is hub-side
   ([0012](../decisions/0012-threshold-model.md)) and the agent has no use for them.
 - Errors: `{ "error": "<english message>" }` with the status codes below.
 

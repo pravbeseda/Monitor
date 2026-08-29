@@ -58,6 +58,8 @@ One row = one test. Anchors: `spec: disk-sensor.md#<heading>`.
 |---|---|
 | a mounted volume whose type is in the allow-list | `disk.free_bytes` and `disk.free_pct` for it |
 | a volume whose type is not in the allow-list (`devfs`, `tmpfs`, `overlay`, `nfs`) | nothing: it is skipped |
+| a mount point under one of the skipped prefixes | nothing: the hub's skip list names what is not worth watching |
+| several volumes of one container (APFS, bind mounts) | one measurement pair, for the shortest mount point of the group |
 | a volume reporting zero total blocks | nothing: a percentage of nothing is not a number |
 | a volume that vanishes between enumeration and reading | nothing for it; every other volume is still collected |
 | a volume the agent may not read | nothing for it; every other volume is still collected |
@@ -85,14 +87,17 @@ One row = one test. Anchors: `spec: disk-sensor.md#<heading>`.
 - Collection is read-only and cheap — one `statfs` per mount, no directory walking.
 - The sensor holds no state between collections: the same machine and the same allow-list
   produce the same measurements.
-- The allow-list arrives from the hub; the sensor has no built-in list of its own
+- The allow-list and the skip list arrive from the hub; the sensor has no list of its own
   ([0010](../decisions/0010-agent-configuration.md)).
+- Which volume of a container is kept depends on the mount points alone, so it does not
+  change between collections and a series keeps its history.
 
 ## Edge cases
 
 - **Several volumes of one APFS container** (`/`, `/System/Volumes/Data`) report the same
-  free space and move together. They are separate series; the evaluation engine sees
-  correlated volumes, not a bug.
+  free space, so only one of them is collected: the shortest mount point of the container,
+  which is the one an operator recognises. Reporting all of them would multiply every
+  future alert by the number of volumes the container happens to have.
 - **An unplugged external drive** simply stops producing measurements. `removable: "true"`
   is what lets the hub tell that from a vanished internal disk (stage 2).
 - **A mount point with spaces or non-ASCII characters** is carried verbatim; labels are

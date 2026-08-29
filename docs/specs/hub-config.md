@@ -29,6 +29,7 @@ ships `config.example.yaml` with synthetic names
 # Product defaults are compiled in; every key below is optional except `nodes`.
 base_tick: 5m
 filesystems: [apfs, ext4, xfs, btrfs, zfs, ntfs]
+skip_mounts: ["/System/Volumes/", "/Library/Developer/CoreSimulator/"]
 
 sensors:
   disk: { interval: 15m }
@@ -55,8 +56,10 @@ nodes:
 ```
 
 **Product defaults** (compiled in, overridable at every layer): `base_tick` 5m, the
-filesystem allow-list above, `disk` every 15m, classes `laptop` (profile `[disk]`, disk
-every 1h) and `server` (profile `[disk]`).
+filesystem allow-list and the skip list above, `disk` every 15m, classes `laptop` (profile
+`[disk]`, disk every 1h) and `server` (profile `[disk]`). The skip list names mount points
+no one watches — the system volumes of a Mac and the simulator images — and says nothing
+about any installation.
 
 **Deployment settings** (no defaults, absent means a startup error): the `nodes` map, each
 node's `class` and `token_env`. Tokens themselves live in the environment, never in the
@@ -65,8 +68,9 @@ file.
 Each node names one environment variable holding its token: a handful of nodes needs no
 second secrets file, and `EnvironmentFile=` with mode 600 is what systemd already does.
 
-**What reaches the agent** is only the flat result — base tick, filesystem allow-list, and
-the enabled sensors with their intervals, in the shape [ingest](ingest.md) documents.
+**What reaches the agent** is only the flat result — base tick, filesystem allow-list,
+skip list, and the enabled sensors with their intervals, in the shape [ingest](ingest.md)
+documents.
 `silence_after` and thresholds stay on the hub.
 
 ## Behaviour
@@ -108,7 +112,8 @@ The node is listed in `nodes`; the layers apply most-specific-last.
 | the node sets `sensors.disk.interval` | wins over the class |
 | the node sets `sensors.<s>.enabled: false` for a sensor in its profile | that sensor is delivered as `enabled: false`, so the agent stops running it |
 | the node sets `sensors.<s>.enabled: true` for a sensor outside its profile | that sensor is delivered, at its resolved interval |
-| the class sets `base_tick` or `filesystems` | wins over the top level; a node entry wins over the class |
+| the class sets `base_tick`, `filesystems` or `skip_mounts` | wins over the top level; a node entry wins over the class |
+| `skip_mounts` set to an empty list | nothing is skipped: an empty list is a value, not an omission |
 | a sensor no layer mentions | absent from the delivered configuration |
 
 ### Configuration version
@@ -141,7 +146,7 @@ logs both versions when it delivers a new one.
 - The configuration version is a function of the delivered configuration alone, so a value
   the agent never sees cannot make it re-fetch.
 - A resolved configuration carries only what the agent acts on — base tick, filesystem
-  allow-list, sensors and intervals.
+  allow-list, skip list, sensors and intervals.
 - No deployment setting has a fallback: the hub either starts fully configured or does not
   start ([0007](../decisions/0007-public-repository.md)).
 - The file is read once, at startup: nothing re-reads it while the hub runs.

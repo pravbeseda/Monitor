@@ -59,7 +59,9 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	// The sensor reads the allow-list the hub last delivered, so it closes over the agent
 	// that is built from it.
 	var running *agent.Agent
-	volumes := disk.New(disk.System(), func() []string { return running.Filesystems() }, time.Now)
+	volumes := disk.New(disk.System(), func() disk.Settings {
+		return disk.Settings{Filesystems: running.Filesystems(), SkipMounts: running.SkipMounts()}
+	}, time.Now)
 	running = agent.New(agent.Options{
 		Node:    opts.node,
 		Sensors: []sensor.Sensor{volumes},

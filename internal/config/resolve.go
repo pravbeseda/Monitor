@@ -39,6 +39,8 @@ func resolve(f file, name string, entry fileNode) (Node, error) {
 		return Node{}, fmt.Errorf("node %s: filesystems is empty, so no volume would be collected", name)
 	}
 
+	skipMounts := lastList(defaultSkipMounts, f.SkipMounts, custom.SkipMounts, entry.SkipMounts)
+
 	profile := lastList(builtin.Profile, custom.Profile)
 	sensors, err := resolveSensors(profile, baseTick,
 		defaultSensors, builtin.Sensors, f.Sensors, custom.Sensors, entry.Sensors)
@@ -46,7 +48,7 @@ func resolve(f file, name string, entry fileNode) (Node, error) {
 		return Node{}, fmt.Errorf("node %s: %w", name, err)
 	}
 
-	agent := Agent{BaseTick: baseTick, Filesystems: filesystems, Sensors: sensors}
+	agent := Agent{BaseTick: baseTick, Filesystems: filesystems, SkipMounts: skipMounts, Sensors: sensors}
 	version, err := version(agent)
 	if err != nil {
 		return Node{}, fmt.Errorf("node %s: %w", name, err)
@@ -119,10 +121,12 @@ func version(a Agent) (string, error) {
 	payload := struct {
 		BaseTick    string                `json:"base_tick"`
 		Filesystems []string              `json:"filesystems"`
+		SkipMounts  []string              `json:"skip_mounts"`
 		Sensors     map[string]sensorJSON `json:"sensors"`
 	}{
 		BaseTick:    a.BaseTick.String(),
 		Filesystems: a.Filesystems,
+		SkipMounts:  a.SkipMounts,
 		Sensors:     make(map[string]sensorJSON, len(a.Sensors)),
 	}
 	for name, sensor := range a.Sensors {

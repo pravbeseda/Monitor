@@ -16,6 +16,9 @@ const tokenEnv = "MONITOR_TOKEN_LAPTOP_A"
 
 var token = strings.Repeat("synthetic-", 4)
 
+// The product default the hub ships with, restated here so a change to it is deliberate.
+var defaultSkipMountsForTest = []string{"/System/Volumes/", "/Library/Developer/CoreSimulator/"}
+
 const minimal = `
 nodes:
   laptop-a:
@@ -157,6 +160,48 @@ func TestResolveFallsBackToProductDefaults(t *testing.T) {
 	}
 	if n.SilenceAfter != 48*time.Hour {
 		t.Errorf("silence_after = %v, want the laptop default 48h", n.SilenceAfter)
+	}
+}
+
+// spec: hub-config.md#resolution — the skip list layers like the allow-list, and an empty
+// list is a value: it means nothing is skipped.
+func TestResolveLayersSkipMounts(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want []string
+	}{
+		{"the product default", minimal, defaultSkipMountsForTest},
+		{"the file's top level", minimal + "\nskip_mounts: [\"/mnt/scratch/\"]\n", []string{"/mnt/scratch/"}},
+		{"the class over the top level", minimal +
+			"\nskip_mounts: [\"/mnt/scratch/\"]\nclasses:\n  laptop:\n    skip_mounts: [\"/Volumes/tmp/\"]\n",
+			[]string{"/Volumes/tmp/"}},
+		{"an empty list skips nothing", minimal + "\nskip_mounts: []\n", []string{}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := node(t, load(t, tc.body), "laptop-a").Agent.SkipMounts
+
+			if len(got) != len(tc.want) {
+				t.Fatalf("skip_mounts = %v, want %v", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("skip_mounts = %v, want %v", got, tc.want)
+				}
+			}
+		})
+	}
+}
+
+// spec: hub-config.md#configuration-version — the skip list reaches the agent, so it counts.
+func TestVersionChangesWithTheSkipList(t *testing.T) {
+	before := node(t, load(t, minimal), "laptop-a").Version
+	after := node(t, load(t, minimal+"\nskip_mounts: [\"/mnt/scratch/\"]\n"), "laptop-a").Version
+
+	if before == after {
+		t.Errorf("version stayed %q after the skip list changed", before)
 	}
 }
 

@@ -331,6 +331,9 @@ func TestConfigurationDelivery(t *testing.T) {
 			if _, ok := delivered["filesystems"].([]any); !ok {
 				t.Errorf("config = %v, want the filesystem allow-list", delivered)
 			}
+			if _, ok := delivered["skip_mounts"].([]any); !ok {
+				t.Errorf("config = %v, want the mount skip list", delivered)
+			}
 		})
 	}
 }

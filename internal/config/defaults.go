@@ -8,6 +8,10 @@ const defaultBaseTick = "5m"
 
 var defaultFilesystems = []string{"apfs", "ext4", "xfs", "btrfs", "zfs", "ntfs"}
 
+// Mount points nobody watches: the system volumes of a Mac and the simulator images.
+// They describe the tool's behaviour out of the box, not any installation.
+var defaultSkipMounts = []string{"/System/Volumes/", "/Library/Developer/CoreSimulator/"}
+
 var defaultSensors = map[string]fileSensor{
 	"disk": {Interval: "15m"},
 }
