@@ -48,7 +48,11 @@ func beat(t *testing.T, db *storage.SQLite, at time.Time) {
 
 // evaluator runs against a fixed clock: the tick is idempotent at a fixed instant.
 func evaluator(store evaluate.Store, at time.Time, targets ...evaluate.Target) *evaluate.Evaluator {
-	return evaluate.New(store, targets, func() time.Time { return at })
+	return evaluatorWith(store, &recorder{}, at, targets...)
+}
+
+func evaluatorWith(store evaluate.Store, channel evaluate.Notifier, at time.Time, targets ...evaluate.Target) *evaluate.Evaluator {
+	return evaluate.New(store, channel, targets, func() time.Time { return at })
 }
 
 func pass(t *testing.T, e *evaluate.Evaluator) {

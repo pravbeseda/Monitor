@@ -2,6 +2,7 @@ package evaluate
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync/atomic"
 	"time"
@@ -9,12 +10,18 @@ import (
 	"github.com/pravbeseda/monitor/internal/storage"
 )
 
+// sendTimeout is how long a channel is given to answer. A notifier that does not return
+// cannot hold evaluation open: the send is abandoned, counted as a failure, and the event
+// is delivered again on a later tick.
+var sendTimeout = 10 * time.Second
+
 // Evaluator runs the hub's evaluation pass. It is the only writer of the event log
 // (ADR 0015): silence, levels, the daily repeat and the digest are one pass on one clock,
 // never a step inside an ingest request.
 type Evaluator struct {
-	store Store
-	now   func() time.Time
+	store    Store
+	notifier Notifier
+	now      func() time.Time
 	// targets is the configuration as evaluation reads it, resolved once at startup: the
 	// file is never re-read while the hub runs.
 	targets []Target
@@ -24,8 +31,8 @@ type Evaluator struct {
 }
 
 // New builds the evaluator the hub ticks.
-func New(store Store, targets []Target, now func() time.Time) *Evaluator {
-	return &Evaluator{store: store, now: now, targets: targets}
+func New(store Store, notifier Notifier, targets []Target, now func() time.Time) *Evaluator {
+	return &Evaluator{store: store, notifier: notifier, now: now, targets: targets}
 }
 
 // Tick runs one pass against one consistent view of the data, taken at the instant it
@@ -43,6 +50,13 @@ func (e *Evaluator) Tick(ctx context.Context) error {
 		return err
 	}
 	now := e.now()
+	newest := make(map[string]storage.Transition, len(snapshot.Newest))
+	for _, event := range snapshot.Newest {
+		if key, err := event.Key(); err == nil {
+			newest[key] = event
+		}
+	}
+
 	for _, subject := range Subjects(e.targets, snapshot, now) {
 		// A hub asked to stop evaluates no further subject; what it already recorded
 		// stays recorded, and the next start picks the rest up.
@@ -52,30 +66,81 @@ func (e *Evaluator) Tick(ctx context.Context) error {
 		if subject.Frozen {
 			continue
 		}
-		if err := e.record(ctx, subject, now); err != nil {
+		change, err := e.record(ctx, subject, now)
+		if err != nil {
 			return err
 		}
+		key, err := subject.Key()
+		if err != nil {
+			slog.Error("identify a subject", "node", subject.Node, "rule", subject.Rule, "error", err)
+			continue
+		}
+		if change != nil {
+			newest[key] = *change
+		}
+		event, recorded := newest[key]
+		e.deliver(ctx, subject, event, recorded, now)
 	}
 	return nil
+}
+
+// deliver sends what the subject is owed, if anything, and records the delivery only once
+// the channel has taken it: a failure leaves last_notified_at where it was, so the next
+// tick tries again. Failure is per message, so one subject never costs the others theirs.
+func (e *Evaluator) deliver(ctx context.Context, subject Subject, newest storage.Transition, recorded bool, now time.Time) {
+	message, owed := due(subject, newest, recorded, now)
+	if !owed {
+		return
+	}
+	if err := e.send(ctx, message); err != nil {
+		slog.Error("deliver a notification",
+			"node", subject.Node, "rule", subject.Rule, "error", err)
+		return
+	}
+	if err := e.store.RecordNotified(ctx, subject.Subject, now); err != nil {
+		slog.Error("record a delivery",
+			"node", subject.Node, "rule", subject.Rule, "error", err)
+	}
+}
+
+// send hands one message to the channel and gives up on it after sendTimeout. The
+// abandoned call keeps its buffered slot, so a channel that answers late does not block a
+// goroutine for good.
+func (e *Evaluator) send(ctx context.Context, message Message) error {
+	ctx, cancel := context.WithTimeout(ctx, sendTimeout)
+	defer cancel()
+
+	answered := make(chan error, 1)
+	go func() { answered <- e.notifier.Notify(ctx, message) }()
+	select {
+	case err := <-answered:
+		return err
+	case <-ctx.Done():
+		return fmt.Errorf("the channel did not answer within %v: %w", sendTimeout, ctx.Err())
+	}
 }
 
 // record writes what the pass made of one subject. A change is a level and an event
 // together; a subject that has not moved is only ever inserted, so a first evaluation at
 // ok appears without an event and `since` survives every tick that follows.
-func (e *Evaluator) record(ctx context.Context, subject Subject, now time.Time) error {
+func (e *Evaluator) record(ctx context.Context, subject Subject, now time.Time) (*storage.Transition, error) {
 	if !subject.Changed() {
-		return e.store.SaveState(ctx, storage.State{
+		return nil, e.store.SaveState(ctx, storage.State{
 			Subject: subject.Subject,
 			Level:   subject.Level.String(),
 			Since:   subject.Since,
 		})
 	}
-	return e.store.ApplyTransition(ctx, storage.Transition{
+	change := storage.Transition{
 		Subject:   subject.Subject,
 		At:        now,
 		From:      subject.Previous.String(),
 		To:        subject.Level.String(),
 		FromSince: subject.Since,
 		Readings:  subject.Readings,
-	})
+	}
+	if err := e.store.ApplyTransition(ctx, change); err != nil {
+		return nil, err
+	}
+	return &change, nil
 }
