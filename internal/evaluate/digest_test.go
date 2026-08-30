@@ -58,7 +58,7 @@ func TestTheDigestCarriesTransitionsAndStandingWarnings(t *testing.T) {
 	warned(t, db, yesterday.Add(time.Hour), "/data")
 	warned(t, db, yesterday.Add(2*time.Hour), "/srv")
 
-	// /data recovers before the digest; its transition into warning is still in the window.
+	// /data recovers before the digest, so its last move of the window is that recovery.
 	recovered := yesterday.Add(3 * time.Hour)
 	collect(t, db, recovered, volume("/data"), 40e9, 31.25)
 	pass(t, evaluator(db, recovered, watching(t)))
@@ -73,11 +73,13 @@ func TestTheDigestCarriesTransitionsAndStandingWarnings(t *testing.T) {
 	if len(summaries) != 1 || len(summaries[0]) != 2 {
 		t.Fatalf("the digest went out as %d messages carrying %v", len(summaries), summaries)
 	}
-	if got := summaries[0][0].Labels["mount"]; got != "/data" {
-		t.Fatalf("the first entry is %q, want the recovered volume's transition", got)
+	if got := summaries[0][0]; got.Labels["mount"] != "/data" || got.To != evaluate.OK {
+		t.Fatalf("the first entry is %q at %v, want the recovered volume's transition",
+			got.Labels["mount"], got.To)
 	}
-	if got := summaries[0][1].Labels["mount"]; got != "/srv" {
-		t.Fatalf("the second entry is %q, want the standing warning", got)
+	if got := summaries[0][1]; got.Labels["mount"] != "/srv" || got.To != evaluate.Warning {
+		t.Fatalf("the second entry is %q at %v, want the standing warning",
+			got.Labels["mount"], got.To)
 	}
 }
 

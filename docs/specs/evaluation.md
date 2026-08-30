@@ -288,7 +288,7 @@ is the hub's first start time, so history is never replayed.
 
 | Situation | Result |
 |---|---|
-| the tick crosses `digest.at` in `digest.timezone` | one message listing every transition of the window that was not delivered instantly, and every subject currently in `warning` |
+| the tick crosses `digest.at` in `digest.timezone` | one message listing each subject's last transition of the window that was not delivered instantly, and every subject currently in `warning` |
 | a subject that returned from `warning` to `ok` inside the window | listed as the recovery it was: it touched no critical, so nothing delivered it ([Notifications](#notifications)) |
 | a subject whose move into `warning` was overtaken by `critical` inside the window | not listed: its last move was delivered instantly, and it is not standing in `warning` |
 | a database that has never digested | no digest over history: `last_digest_at` starts at the hub's first start time |
