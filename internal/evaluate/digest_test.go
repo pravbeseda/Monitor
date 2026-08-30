@@ -150,8 +150,8 @@ func TestAnEmptyDigestSendsNothingAndStillCloses(t *testing.T) {
 	if got := channel.summaries(); len(got) != 0 {
 		t.Fatalf("a quiet day digested %v", got)
 	}
-	if got, ok := lastDigest(t, db); !ok || !got.Equal(occurrence) {
-		t.Fatalf("the window closed at %v, want the occurrence %v", got, occurrence)
+	if got, ok := lastDigest(t, db); !ok || !got.Equal(at) {
+		t.Fatalf("the window closed at %v, want the tick %v that read it", got, at)
 	}
 }
 
@@ -326,8 +326,8 @@ func TestTwoMissedDaysSendOneDigest(t *testing.T) {
 	if got := channel.summaries(); len(got) != 1 {
 		t.Fatalf("three missed days digested %d times", len(got))
 	}
-	if got, _ := lastDigest(t, db); !got.Equal(occurrence) {
-		t.Fatalf("the window closed at %v, want %v", got, occurrence)
+	if got, _ := lastDigest(t, db); !got.Equal(at) {
+		t.Fatalf("the window closed at %v, want the tick %v that read it", got, at)
 	}
 }
 
@@ -376,5 +376,35 @@ func TestAWarningOvertakenByCriticalIsNotDigested(t *testing.T) {
 	}
 	if got := channel.sent(); len(got) != 1 || got[0].To != evaluate.Critical {
 		t.Fatalf("the critical delivered %+v, want one instant message", got)
+	}
+}
+
+// spec: evaluation.md#digest — a transition recorded after `digest.at` by the tick that
+// sent the digest is not listed again the next day: the window closed where it was read.
+func TestATransitionReportedOnceIsNotDigestedAgainTomorrow(t *testing.T) {
+	db := open(t)
+	warned(t, db, yesterday.Add(time.Hour), "/data")
+	// The last digest went out after that warning, so the window below starts clean.
+	mark(t, db, yesterday.Add(3*time.Hour))
+
+	// The hub was down at 09:00 and starts an hour later, so this tick both records the
+	// recovery and sends the day's digest carrying it.
+	late := occurrence.Add(time.Hour)
+	collect(t, db, late, volume("/data"), 40e9, 31.25)
+	first := &recorder{}
+	pass(t, digesting(db, first, late, watching(t)))
+	summaries := first.summaries()
+	if len(summaries) != 1 || len(summaries[0]) != 1 || summaries[0][0].To != evaluate.OK {
+		t.Fatalf("the first digest carried %v, want the recovery", summaries)
+	}
+
+	// A day passes with nothing happening to the volume at all.
+	tomorrow := late.AddDate(0, 0, 1)
+	collect(t, db, tomorrow, volume("/data"), 40e9, 31.25)
+	second := &recorder{}
+	pass(t, digesting(db, second, tomorrow, watching(t)))
+
+	if got := second.summaries(); len(got) != 0 {
+		t.Fatalf("the recovery was digested a second time: %v", got)
 	}
 }

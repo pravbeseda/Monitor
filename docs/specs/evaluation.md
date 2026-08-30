@@ -282,9 +282,13 @@ and repeats on its own clock. The content is derived from the recorded transitio
 current levels, so a restart cannot lose a queue.
 
 A digest is due when the most recent occurrence of `digest.at` in `digest.timezone` at or
-before the tick time is later than `last_digest_at`. Sending sets `last_digest_at` to that
-occurrence, not to the tick time. On a database that has never digested, `last_digest_at`
-is the hub's first start time, so history is never replayed.
+before the tick time is later than `last_digest_at`. The window a digest reports on ends at
+the tick that sends it, so that is where `last_digest_at` is left: the occurrence decides
+*whether* a digest is due, the tick time records *what has been reported*. Stamping the
+occurrence instead would leave everything recorded between the hour and the tick inside
+tomorrow's window as well, and say it twice. The message itself is still stamped with the
+occurrence, because that is the day it speaks for. On a database that has never digested,
+`last_digest_at` is the hub's first start time, so history is never replayed.
 
 | Situation | Result |
 |---|---|
@@ -303,6 +307,7 @@ is the hub's first start time, so history is never replayed.
 | the digest already went out today and the hub restarts | no second digest: `last_digest_at` is the guard |
 | the hub was down at `digest.at` and starts later the same day | the digest is sent on the first tick after startup |
 | the hub was down for two days | one digest, not two: only the most recent occurrence counts |
+| a transition recorded after `digest.at` by the tick that sent the digest | not listed again tomorrow: the window closed at the tick that reported it |
 | `digest.at` names an hour a DST change removes | the instant is built in the configured zone and normalised forward, so the day is not skipped |
 
 ### Persistence and restart

@@ -45,6 +45,8 @@ func (e *Evaluator) digest(ctx context.Context, subjects []Subject, now time.Tim
 		// is never replayed.
 		since = e.started
 	}
+	// The occurrence decides whether a digest is due; the tick time records what has been
+	// reported, which is why it is the mark below.
 	occurrence := e.schedule.mostRecent(now)
 	if !occurrence.After(since) {
 		return nil
@@ -63,7 +65,9 @@ func (e *Evaluator) digest(ctx context.Context, subjects []Subject, now time.Tim
 			return nil
 		}
 	}
-	return e.store.SetLastDigestAt(ctx, occurrence)
+	// The window ends where it was read, not at the hour it speaks for: stamping the
+	// occurrence would leave everything recorded since inside tomorrow's window too.
+	return e.store.SetLastDigestAt(ctx, now)
 }
 
 // entries is what the digest lists: every transition of the window that was not delivered
