@@ -82,9 +82,24 @@ func run(args []string, out io.Writer) error {
 	// A signal cancels the context, which stops the evaluation pass and the server
 	// together: a change already recorded stays recorded, an in-flight send is abandoned.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
+	server := &http.Server{
+		Addr:              opts.listen,
+		Handler:           hub.Routes(cfg, store, time.Now),
+		ReadHeaderTimeout: readHeaderTimeout,
+	}
 	evaluating := make(chan struct{})
+	serving := make(chan struct{})
+
+	// Both goroutines write to the database that the deferred Close takes away, so
+	// whatever ends the run — a signal or a listener that never came up — cancels them
+	// first and waits: a delivery recorded after the handle went would be sent again.
+	defer func() {
+		stop()
+		<-evaluating
+		<-serving
+	}()
+
 	go func() {
 		defer close(evaluating)
 		evaluate.New(evaluate.Options{
@@ -96,17 +111,11 @@ func run(args []string, out io.Writer) error {
 			Now:      time.Now,
 		}).Run(ctx, evaluate.Interval)
 	}()
-	// The pass writes to the database the deferred Close closes, so the stop waits for it:
-	// a delivery recorded after the handle went away would be re-sent on the next start.
-	defer func() { <-evaluating }()
-
-	server := &http.Server{
-		Addr:              opts.listen,
-		Handler:           hub.Routes(cfg, store, time.Now),
-		ReadHeaderTimeout: readHeaderTimeout,
-	}
 	go func() {
+		defer close(serving)
 		<-ctx.Done()
+		// Shutdown closes the listeners at once and then drains what is in flight, so
+		// ListenAndServe returns long before this does.
 		closing, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 		if err := server.Shutdown(closing); err != nil {

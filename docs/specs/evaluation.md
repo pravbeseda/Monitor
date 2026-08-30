@@ -276,9 +276,10 @@ A digest carries a list of those, one entry per subject.
 
 ### Digest
 
-The digest carries warnings only; critical is instant and repeats on its own clock. Its
-content is derived from the recorded transitions and the current levels, so a restart
-cannot lose a queue.
+The digest carries what critical did not take instantly: the moves between `ok` and
+`warning` in both directions, and every subject standing in `warning`. Critical is instant
+and repeats on its own clock. The content is derived from the recorded transitions and the
+current levels, so a restart cannot lose a queue.
 
 A digest is due when the most recent occurrence of `digest.at` in `digest.timezone` at or
 before the tick time is later than `last_digest_at`. Sending sets `last_digest_at` to that
@@ -287,7 +288,9 @@ is the hub's first start time, so history is never replayed.
 
 | Situation | Result |
 |---|---|
-| the tick crosses `digest.at` in `digest.timezone` | one message listing every warning transition since the previous digest and every subject currently in `warning` |
+| the tick crosses `digest.at` in `digest.timezone` | one message listing every transition of the window that was not delivered instantly, and every subject currently in `warning` |
+| a subject that returned from `warning` to `ok` inside the window | listed as the recovery it was: it touched no critical, so nothing delivered it ([Notifications](#notifications)) |
+| a subject whose move into `warning` was overtaken by `critical` inside the window | not listed: its last move was delivered instantly, and it is not standing in `warning` |
 | a database that has never digested | no digest over history: `last_digest_at` starts at the hub's first start time |
 | a subject both transitioned to `warning` and is still in `warning` | listed once |
 | a warning transition written by the same tick that sends the digest | included: a transition recorded by a tick falls inside that tick's digest window |

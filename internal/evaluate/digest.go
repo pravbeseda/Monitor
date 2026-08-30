@@ -74,16 +74,12 @@ func (e *Evaluator) entries(ctx context.Context, subjects []Subject, since, now,
 	if err != nil {
 		return nil, err
 	}
-	moved := make(map[string]storage.Transition, len(events))
+	// The window is read newest-last, so a subject ends up with the last thing that
+	// happened to it and is listed once.
+	newest := make(map[string]storage.Transition, len(events))
 	for _, event := range events {
-		// Everything critical touches was delivered at once (ADR 0016); what waits for
-		// the digest is exactly the transitions between ok and warning, in both
-		// directions. The latest one of a subject wins, so it is listed once.
-		if instant(event) {
-			continue
-		}
 		if key, err := event.Key(); err == nil {
-			moved[key] = event
+			newest[key] = event
 		}
 	}
 
@@ -96,7 +92,10 @@ func (e *Evaluator) entries(ctx context.Context, subjects []Subject, since, now,
 		if err != nil {
 			continue
 		}
-		if event, changed := moved[key]; changed {
+		// Everything critical touches was delivered at once (ADR 0016). A subject whose
+		// last move was such a change has nothing left to report here — but it is still
+		// listed below if it is standing in warning now.
+		if event, changed := newest[key]; changed && !instant(event) {
 			from := storedLevel(event.From, subject.Node, subject.Rule)
 			to := storedLevel(event.To, subject.Node, subject.Rule)
 			out = append(out, message(subject, from, to, event.Readings, event.FromSince, event.At))

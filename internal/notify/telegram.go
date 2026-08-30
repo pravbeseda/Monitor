@@ -57,20 +57,13 @@ func (t Telegram) send(ctx context.Context, text string) error {
 	endpoint := t.api() + "/bot" + t.Token + "/sendMessage"
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
-		// The URL carries the token, so it is never quoted back.
-		return fmt.Errorf("build the telegram request: %w", err)
+		return fmt.Errorf("build the telegram request: %w", withoutTheURL(err))
 	}
 	request.Header.Set("Content-Type", "application/json")
 
 	response, err := t.client().Do(request)
 	if err != nil {
-		// Do wraps the request URL into its error, and that URL carries the token. Only
-		// the cause is kept, which names the host and never the path (ADR 0007 rule 4).
-		var wrapped *url.Error
-		if errors.As(err, &wrapped) {
-			err = wrapped.Err
-		}
-		return fmt.Errorf("send to telegram: %w", err)
+		return fmt.Errorf("send to telegram: %w", withoutTheURL(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
@@ -91,6 +84,17 @@ func (t Telegram) client() *http.Client {
 		return t.Client
 	}
 	return &http.Client{Timeout: telegramTimeout}
+}
+
+// withoutTheURL drops the address from an error. Both url.Parse, which the request builder
+// runs, and the client's own Do wrap the URL into a *url.Error, and this URL carries the
+// token in its path — while the cause underneath names only the host (ADR 0007 rule 4).
+func withoutTheURL(err error) error {
+	var wrapped *url.Error
+	if errors.As(err, &wrapped) {
+		return wrapped.Err
+	}
+	return err
 }
 
 // String keeps the bot's credentials out of a debug print of the channel.

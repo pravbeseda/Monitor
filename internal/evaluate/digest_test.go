@@ -329,8 +329,8 @@ func TestTwoMissedDaysSendOneDigest(t *testing.T) {
 	}
 }
 
-// spec: evaluation.md#notifications — warning → ok touches no critical, so it waits for the
-// digest rather than going out at once.
+// spec: evaluation.md#digest — a subject that returned from warning to ok inside the window
+// is listed as the recovery it was: nothing delivered it at once.
 func TestARecoveryFromWarningIsCarriedByTheDigest(t *testing.T) {
 	db := open(t)
 	warned(t, db, yesterday.Add(time.Hour), "/data")
@@ -350,5 +350,29 @@ func TestARecoveryFromWarningIsCarriedByTheDigest(t *testing.T) {
 	}
 	if entry := summaries[0][0]; entry.From != evaluate.Warning || entry.To != evaluate.OK {
 		t.Fatalf("the entry reads %v → %v, want warning → ok", entry.From, entry.To)
+	}
+}
+
+// spec: evaluation.md#digest — a subject that reached critical inside the window was
+// reported instantly, so its earlier move into warning is not repeated by the digest.
+func TestAWarningOvertakenByCriticalIsNotDigested(t *testing.T) {
+	db := open(t)
+	mark(t, db, yesterday)
+
+	warning := occurrence.Add(time.Hour)
+	collect(t, db, warning, volume("/data"), 19e9, 14.84)
+	pass(t, digesting(db, &recorder{}, warning, watching(t)))
+	mark(t, db, yesterday)
+
+	critical := warning.Add(time.Minute)
+	collect(t, db, critical, volume("/data"), 3e9, 2.34)
+	channel := &recorder{}
+	pass(t, digesting(db, channel, critical, watching(t)))
+
+	if got := channel.summaries(); len(got) != 0 {
+		t.Fatalf("the digest repeated a warning the critical had overtaken: %v", got)
+	}
+	if got := channel.sent(); len(got) != 1 || got[0].To != evaluate.Critical {
+		t.Fatalf("the critical delivered %+v, want one instant message", got)
 	}
 }

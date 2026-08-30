@@ -241,3 +241,21 @@ func TestATransportFailureNeverQuotesTheToken(t *testing.T) {
 		t.Fatalf("the error carries the bot token: %v", err)
 	}
 }
+
+// spec: evaluation.md#messages — a token the URL cannot carry is refused before the
+// request is built, and that refusal quotes the URL: it must not reach a log line either
+// (ADR 0007 rule 4).
+func TestAnUnusableTokenNeverReachesTheError(t *testing.T) {
+	// A trailing newline is what `export TOKEN=$(cat file)` leaves behind.
+	channel := notify.Telegram{
+		Token: "123456:AAsecretTOKENvalue\n", ChatID: "1",
+		Locale: i18n.English, API: "https://example.invalid",
+	}
+	err := channel.Notify(context.Background(), entering())
+	if err == nil {
+		t.Fatal("a token the URL cannot carry was accepted")
+	}
+	if strings.Contains(err.Error(), "AAsecretTOKENvalue") {
+		t.Fatalf("the error carries the bot token: %v", err)
+	}
+}

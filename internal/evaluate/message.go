@@ -47,8 +47,9 @@ func instant(change storage.Transition) bool {
 	return change.To == Critical.String() || change.From == Critical.String()
 }
 
-// storedLevel reads a level out of the event log. A name this build does not know is
-// logged rather than allowed to read as `ok` in a message: the log outlives any one build.
+// storedLevel reads a level out of the event log, which outlives any one build. A name
+// this build cannot read comes back as `ok` — the message has to say something — and the
+// fact is logged, so a reader who was told the wrong thing can find out why.
 func storedLevel(text, node, rule string) Level {
 	found, readable := ParseLevel(text)
 	if !readable {
