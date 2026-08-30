@@ -51,17 +51,30 @@ type Node struct {
 	volumes map[string]map[string]evaluate.Rule
 }
 
-// Rule returns the thresholds that judge one subject of this node: the rules of the volume
-// at that mount when the file names it, and the node's own otherwise. A mount is matched
-// byte for byte, exactly as the sensor reports it, so a trailing slash is another volume.
-func (n Node) Rule(name, mount string) (evaluate.Rule, bool) {
-	if volume, named := n.volumes[mount]; named {
-		if found, ok := volume[name]; ok {
-			return found, true
+// Target is what evaluation reads of this node (ADR 0015): the silence window, the
+// interval of every sensor the node actually runs, and the thresholds. None of it reaches
+// an agent, which is why it travels apart from Agent.
+func (n Node) Target() evaluate.Target {
+	intervals := make(map[string]time.Duration, len(n.Agent.Sensors))
+	for name, sensor := range n.Agent.Sensors {
+		// A sensor delivered as disabled collects nothing, so the rules that read it have
+		// no subjects here: an interval it never honours would only freeze them later.
+		if sensor.Enabled {
+			intervals[name] = sensor.Interval
 		}
 	}
-	found, ok := n.rules[name]
-	return found, ok
+	return evaluate.Target{
+		Node:         n.Name,
+		SilenceAfter: n.SilenceAfter,
+		Intervals:    intervals,
+		Rules:        n.rules,
+		Volumes:      n.volumes,
+	}
+}
+
+// Rule returns the thresholds that judge one subject of this node.
+func (n Node) Rule(name, mount string) (evaluate.Rule, bool) {
+	return evaluate.Target{Rules: n.rules, Volumes: n.volumes}.Rule(name, mount)
 }
 
 // String keeps every token out of a debug print of the whole configuration (ADR 0007).
