@@ -6,17 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
-// lastDigestKey is the one row the meta table holds today: when the last digest went out.
+// lastDigestKey is the one row the meta table holds today: the boundary of the digest
+// window. It is opened at the instant a hub first evaluates a database and moved forward
+// by every digest that goes out, so a reader is never told twice about one transition.
 const lastDigestKey = "last_digest_at"
-
-// criticalLevel is the level a notification is driven by: entering it or leaving it is
-// what a channel is told about at once, and everything else waits for the digest
-// (ADR 0016). It is evaluate's vocabulary, and storage knows it because the query for what
-// a subject is still owed cannot be written without it.
-const criticalLevel = "critical"
 
 // Subject is what has a level: one node, one rule, and the labels of the series that rule
 // reads together (docs/specs/evaluation.md).
@@ -79,16 +76,17 @@ type Snapshot struct {
 	Nodes []NodeState
 	// States is the level every subject held when the tick began.
 	States []State
-	// Newest is the latest transition of every subject that a channel could still owe a
-	// message for — one that entered or left critical. A later transition of a quieter
-	// kind must not hide it: a send that failed is owed whatever the subject has become
-	// since.
+	// Newest is the latest transition of every subject that entered or left one of the
+	// levels the caller named as owed. A later transition of a quieter kind must not hide
+	// it: a send that failed is owed whatever the subject has become since.
 	Newest []Transition
 }
 
 // Snapshot reads all three in one read-only transaction, which takes no write lock, so a
-// tick never serialises ingest against itself.
-func (s *SQLite) Snapshot(ctx context.Context) (Snapshot, error) {
+// tick never serialises ingest against itself. `owed` names the levels whose transitions a
+// channel could still be told about on their own; which those are is the caller's rule, so
+// storage filters by it rather than knowing it.
+func (s *SQLite) Snapshot(ctx context.Context, owed []string) (Snapshot, error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("begin snapshot: %w", err)
@@ -102,7 +100,7 @@ func (s *SQLite) Snapshot(ctx context.Context) (Snapshot, error) {
 	if out.States, err = loadStates(ctx, tx); err != nil {
 		return Snapshot{}, err
 	}
-	if out.Newest, err = newestEvents(ctx, tx); err != nil {
+	if out.Newest, err = newestEvents(ctx, tx, owed); err != nil {
 		return Snapshot{}, err
 	}
 	return out, nil
@@ -236,7 +234,20 @@ func (s *SQLite) RecordNotified(ctx context.Context, subject Subject, at time.Ti
 	return nil
 }
 
-func newestEvents(ctx context.Context, from querier) ([]Transition, error) {
+// newestEvents keeps one row per subject: the newest transition touching a level the
+// caller named. Naming none is not "every level" but "none", because a caller that owes
+// nothing is asking for nothing.
+func newestEvents(ctx context.Context, from querier, owed []string) ([]Transition, error) {
+	if len(owed) == 0 {
+		return nil, nil
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?, ", len(owed)), ", ")
+	args := make([]any, 0, 2*len(owed))
+	for range 2 {
+		for _, level := range owed {
+			args = append(args, level)
+		}
+	}
 	return readEvents(ctx, from, `
 		SELECT id, at, node, rule, labels, from_level, to_level, from_since, readings FROM (
 			SELECT id, at, node, rule, labels, from_level, to_level, from_since, readings,
@@ -244,9 +255,9 @@ func newestEvents(ctx context.Context, from querier) ([]Transition, error) {
 			       -- table enforces; id breaks a tie that therefore cannot arise.
 			       ROW_NUMBER() OVER (PARTITION BY node, rule, labels ORDER BY at DESC, id DESC) AS recency
 			FROM events
-			WHERE from_level = ? OR to_level = ?)
+			WHERE from_level IN (`+placeholders+`) OR to_level IN (`+placeholders+`))
 		WHERE recency = 1
-		ORDER BY node, rule, labels`, criticalLevel, criticalLevel)
+		ORDER BY node, rule, labels`, args...)
 }
 
 // EventsBetween returns the transitions recorded after from and up to and including to,
@@ -293,8 +304,9 @@ func readEvents(ctx context.Context, from querier, query string, args ...any) ([
 	return out, nil
 }
 
-// LastDigestAt is when the last digest went out, and whether one ever did. A database
-// that has never digested is where the hub's own start time takes over.
+// LastDigestAt is where the current digest window begins, and whether a window has been
+// opened at all. A database nothing has evaluated yet has none, and its first pass is what
+// opens one.
 func (s *SQLite) LastDigestAt(ctx context.Context) (time.Time, bool, error) {
 	var value string
 	err := s.db.QueryRowContext(ctx, `SELECT value FROM meta WHERE key = ?`, lastDigestKey).Scan(&value)
@@ -311,9 +323,10 @@ func (s *SQLite) LastDigestAt(ctx context.Context) (time.Time, bool, error) {
 	return at, true, nil
 }
 
-// SetLastDigestAt records where the digest window closed, which is the tick that read it:
-// its caller reports on everything up to that instant, so anything stamped earlier would
-// fall inside the next window as well and be said twice (docs/specs/evaluation.md#digest).
+// SetLastDigestAt moves the digest window's boundary. Its caller writes the instant a pass
+// opened the window at, and afterwards the instant each digest read up to: anything stamped
+// earlier than what was already reported would fall inside the next window as well and be
+// said twice (docs/specs/evaluation.md#digest).
 func (s *SQLite) SetLastDigestAt(ctx context.Context, at time.Time) error {
 	if _, err := s.db.ExecContext(ctx, `
 		INSERT INTO meta (key, value) VALUES (?, ?)

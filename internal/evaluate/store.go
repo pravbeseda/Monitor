@@ -12,8 +12,10 @@ import (
 // this one costs nothing to their test doubles.
 type Store interface {
 	// Snapshot is the one view a tick evaluates against: nodes and their latest values,
-	// the level every subject held, and each subject's newest transition.
-	Snapshot(ctx context.Context) (storage.Snapshot, error)
+	// the level every subject held, and each subject's newest transition among the levels
+	// named as owed. Which levels those are is this package's rule (ADR 0016), so it
+	// travels with the call rather than living in the store.
+	Snapshot(ctx context.Context, owed []string) (storage.Snapshot, error)
 
 	SaveState(ctx context.Context, state storage.State) error
 	ApplyTransition(ctx context.Context, change storage.Transition) error

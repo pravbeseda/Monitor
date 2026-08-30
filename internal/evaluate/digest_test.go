@@ -440,3 +440,39 @@ func TestTheFirstStartSurvivesARestart(t *testing.T) {
 		t.Fatalf("the restarted hub digested %v, want the recovery it recorded", summaries)
 	}
 }
+
+// spec: evaluation.md#digest — a first pass that stops before its digest still leaves the
+// window it recorded into: the start is written down before any subject is.
+func TestAnInterruptedFirstPassStillOpensTheWindow(t *testing.T) {
+	db := open(t)
+	started := occurrence.AddDate(0, 0, -1).Add(time.Hour)
+	recorded := started.Add(time.Hour)
+	collect(t, db, recorded, volume("/"), 19e9, 14.84)
+	collect(t, db, recorded, volume("/data"), 19e9, 14.84)
+
+	// The hub is asked to stop the moment its first change is recorded, so the pass never
+	// reaches its digest.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stopping := &cancelling{Store: db, cancel: cancel}
+	interrupted := evaluate.New(evaluate.Options{
+		Store: stopping, Notifier: &recorder{}, Targets: []evaluate.Target{watching(t)},
+		Digest: schedule, Started: started, Now: func() time.Time { return recorded },
+	})
+	if err := interrupted.Tick(ctx); err == nil {
+		t.Fatal("the interrupted pass reported success")
+	}
+
+	// It restarts the next day, so its own idea of "first start" has moved.
+	at := occurrence.Add(time.Hour)
+	collect(t, db, at, volume("/"), 40e9, 31.25)
+	channel := &recorder{}
+	pass(t, evaluate.New(evaluate.Options{
+		Store: db, Notifier: channel, Targets: []evaluate.Target{watching(t)},
+		Digest: schedule, Started: at, Now: func() time.Time { return at },
+	}))
+
+	if got := channel.summaries(); len(got) != 1 {
+		t.Fatalf("the restarted hub digested %v, want the window the interrupted pass opened", got)
+	}
+}

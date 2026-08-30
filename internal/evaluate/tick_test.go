@@ -72,7 +72,7 @@ func pass(t *testing.T, e *evaluate.Evaluator) {
 // levelOf returns the stored level of one subject, or "" when it has none.
 func levelOf(t *testing.T, db *storage.SQLite, rule, mount string) storage.State {
 	t.Helper()
-	snapshot, err := db.Snapshot(context.Background())
+	snapshot, err := db.Snapshot(context.Background(), []string{"critical"})
 	if err != nil {
 		t.Fatalf("Snapshot: %v", err)
 	}
@@ -339,11 +339,11 @@ type blocking struct {
 	passes  atomic.Int32
 }
 
-func (b *blocking) Snapshot(ctx context.Context) (storage.Snapshot, error) {
+func (b *blocking) Snapshot(ctx context.Context, owed []string) (storage.Snapshot, error) {
 	b.passes.Add(1)
 	b.entered <- struct{}{}
 	<-b.release
-	return b.Store.Snapshot(ctx)
+	return b.Store.Snapshot(ctx, owed)
 }
 
 // cancelling stops the hub the moment the first change is recorded.

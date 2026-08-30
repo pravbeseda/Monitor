@@ -267,7 +267,7 @@ func TestNewestEventPerSubject(t *testing.T) {
 		t.Fatalf("ApplyTransition: %v", err)
 	}
 
-	newest, err := newestEvents(ctx, db.db)
+	newest, err := newestEvents(ctx, db.db, []string{"critical"})
 	if err != nil {
 		t.Fatalf("read the newest events: %v", err)
 	}
@@ -406,7 +406,7 @@ func TestSnapshotReadsEveryPartTogether(t *testing.T) {
 		t.Fatalf("ApplyTransition: %v", err)
 	}
 
-	snapshot, err := db.Snapshot(ctx)
+	snapshot, err := db.Snapshot(ctx, []string{"critical"})
 	if err != nil {
 		t.Fatalf("Snapshot: %v", err)
 	}
@@ -441,5 +441,23 @@ func TestSubjectKey(t *testing.T) {
 	}
 	if same == other {
 		t.Fatal("two volumes share one key")
+	}
+}
+
+// A caller that owes nothing is asking for nothing, so naming no level is not a licence to
+// return every transition there is.
+func TestNewestEventsWithoutAnOwedLevelReturnsNothing(t *testing.T) {
+	db := open(t)
+	ctx := context.Background()
+	if err := db.ApplyTransition(ctx, transition(volume("/"), tickOne, "ok", "critical")); err != nil {
+		t.Fatalf("ApplyTransition: %v", err)
+	}
+
+	newest, err := newestEvents(ctx, db.db, nil)
+	if err != nil {
+		t.Fatalf("read the newest events: %v", err)
+	}
+	if len(newest) != 0 {
+		t.Fatalf("no owed level returned %d events, want none", len(newest))
 	}
 }

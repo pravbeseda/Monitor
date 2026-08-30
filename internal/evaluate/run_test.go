@@ -17,9 +17,9 @@ type counting struct {
 	passes atomic.Int32
 }
 
-func (c *counting) Snapshot(ctx context.Context) (storage.Snapshot, error) {
+func (c *counting) Snapshot(ctx context.Context, owed []string) (storage.Snapshot, error) {
 	c.passes.Add(1)
-	return c.Store.Snapshot(ctx)
+	return c.Store.Snapshot(ctx, owed)
 }
 
 // spec: evaluation.md#the-tick — evaluation runs on its own schedule until the hub stops.

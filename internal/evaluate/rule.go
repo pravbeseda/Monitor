@@ -9,6 +9,10 @@ import "math"
 const (
 	marginNumerator   = 6
 	marginDenominator = 5
+	// marginTolerance absorbs the float error of the products below. It is a millionth of
+	// the hundredth of a point the sensor reports in, so it can never bridge the gap
+	// between two values a sensor can tell apart.
+	marginTolerance = 1e-6
 )
 
 // Threshold is one level of a rule: a floor, optionally guarded by a proportional band.
@@ -46,13 +50,13 @@ func clearedBytes(value, threshold float64) bool {
 	return value*marginDenominator >= threshold*marginNumerator
 }
 
-// Percentages arrive with two decimals (docs/specs/disk-sensor.md) but a configured ratio
-// carries whatever the file wrote, so it is the products that are rounded and not the
-// operands: rounding a threshold of 6.755 to hundredths would move its margin by 0.006
-// points and hold a subject at a level it has left. Rounding the product only absorbs the
-// float error, at a step of 1/500 of a point — far below what the sensor reports.
+// Only the value is quantised: percentages arrive with two decimals
+// (docs/specs/disk-sensor.md), so its hundredths are exact, while a configured ratio
+// carries whatever the file wrote and its margin is compared at full precision. Rounding
+// either side would move the margin — a threshold of 6.755 by 0.006 of a point, one of
+// 6.759 by 0.0008 — and hold or release a subject at a level it has not reached.
 func clearedPercent(value, threshold float64) bool {
-	return math.Round(value*100*marginDenominator) >= math.Round(threshold*100*marginNumerator)
+	return math.Round(value*100)+marginTolerance >= threshold*100*marginNumerator/marginDenominator
 }
 
 // Rule is what gives one subject its level: the thresholds of both levels.

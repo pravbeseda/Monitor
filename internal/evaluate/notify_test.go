@@ -316,7 +316,7 @@ type beforeSending struct {
 }
 
 func (b *beforeSending) Notify(ctx context.Context, m evaluate.Message) error {
-	snapshot, err := b.db.Snapshot(ctx)
+	snapshot, err := b.db.Snapshot(ctx, []string{"critical"})
 	if err != nil {
 		return err
 	}

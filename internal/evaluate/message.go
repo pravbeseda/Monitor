@@ -41,10 +41,19 @@ type Notifier interface {
 	Digest(ctx context.Context, at time.Time, entries []Message) error
 }
 
-// instant reports whether an event is one of the three ADR 0016 delivers at once: entering
-// critical, or leaving it for either lower level.
+// instantLevels are the levels whose transitions ADR 0016 delivers at once: entering
+// critical, or leaving it for either lower level. It is the one statement of that rule —
+// the store is handed it rather than knowing it, so the two cannot drift apart.
+func instantLevels() []string { return []string{Critical.String()} }
+
+// instant reports whether an event is one a channel is told about on its own.
 func instant(change storage.Transition) bool {
-	return change.To == Critical.String() || change.From == Critical.String()
+	for _, level := range instantLevels() {
+		if change.To == level || change.From == level {
+			return true
+		}
+	}
+	return false
 }
 
 // storedLevel reads a level out of the event log, which outlives any one build. A name

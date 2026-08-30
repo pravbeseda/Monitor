@@ -150,3 +150,15 @@ func TestARatioFinerThanTwoDecimalsKeepsItsMargin(t *testing.T) {
 		t.Fatalf("8.10%% is below that margin, so the level is %v, want warning", got)
 	}
 }
+
+// The margin of a ratio finer than a sensor step is compared at full precision in both
+// directions: 20% above 6.759 is 8.1108, which 8.11% has not reached.
+func TestARatioBetweenSensorStepsIsNotRoundedIntoTheMargin(t *testing.T) {
+	rule := evaluate.Rule{Warning: evaluate.Threshold{Floor: gb(10), Ratio: 6.759, Ceiling: gb(100)}}
+	if got := rule.Level(evaluate.Warning, gb(50), 8.11); got != evaluate.Warning {
+		t.Fatalf("8.11%% is below the 8.1108%% margin of 6.759%%, so the level is %v, want warning", got)
+	}
+	if got := rule.Level(evaluate.Warning, gb(50), 8.12); got != evaluate.OK {
+		t.Fatalf("8.12%% clears that margin, so the level is %v, want ok", got)
+	}
+}

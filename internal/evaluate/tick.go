@@ -69,7 +69,14 @@ func (e *Evaluator) Tick(ctx context.Context) error {
 	}
 	defer e.running.Store(false)
 
-	snapshot, err := e.store.Snapshot(ctx)
+	// The window is opened before anything is recorded: a pass that stops halfway must
+	// not leave an event behind with no digest window reaching back over it.
+	since, err := e.openDigestWindow(ctx)
+	if err != nil {
+		return err
+	}
+
+	snapshot, err := e.store.Snapshot(ctx, instantLevels())
 	if err != nil {
 		return err
 	}
@@ -111,7 +118,7 @@ func (e *Evaluator) Tick(ctx context.Context) error {
 		e.deliver(ctx, subject, event, recorded, now)
 	}
 	// The digest runs last, so a warning this pass recorded is in the window it closes.
-	return e.digest(ctx, subjects, now)
+	return e.digest(ctx, subjects, since, now)
 }
 
 // deliver sends what the subject is owed, if anything, and records the delivery only once

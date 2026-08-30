@@ -32,24 +32,27 @@ func (s Schedule) mostRecent(now time.Time) time.Time {
 	return at(local.AddDate(0, 0, -1))
 }
 
+// openDigestWindow returns where the current digest window begins, writing it down the
+// first time this database is evaluated at all. A window that exists only in memory would
+// be lost by a pass that stops before its digest, and the events it already recorded would
+// then fall outside every window there is.
+func (e *Evaluator) openDigestWindow(ctx context.Context) (time.Time, error) {
+	since, opened, err := e.store.LastDigestAt(ctx)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if opened {
+		return since, nil
+	}
+	// A database nothing has evaluated yet starts at this hub's first run, so history is
+	// never replayed.
+	return e.started, e.store.SetLastDigestAt(ctx, e.started)
+}
+
 // digest sends the day's summary when the tick crosses the configured hour. The window is
 // closed even when there was nothing to say, so a warning that appears after the hour
 // waits for tomorrow rather than going out at once.
-func (e *Evaluator) digest(ctx context.Context, subjects []Subject, now time.Time) error {
-	since, digested, err := e.store.LastDigestAt(ctx)
-	if err != nil {
-		return err
-	}
-	if !digested {
-		// A database that has never digested starts at this hub's first run, so history
-		// is never replayed — and that instant is written down at once, because a restart
-		// before the first digest would otherwise move the window's start forward and
-		// drop everything recorded in between.
-		since = e.started
-		if err := e.store.SetLastDigestAt(ctx, since); err != nil {
-			return err
-		}
-	}
+func (e *Evaluator) digest(ctx context.Context, subjects []Subject, since, now time.Time) error {
 	// The occurrence decides whether a digest is due; the tick time records what has been
 	// reported, which is why it is the mark below.
 	occurrence := e.schedule.mostRecent(now)
