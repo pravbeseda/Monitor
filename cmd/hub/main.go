@@ -84,14 +84,21 @@ func run(args []string, out io.Writer) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	go evaluate.New(evaluate.Options{
-		Store:    store,
-		Notifier: channel,
-		Targets:  cfg.Targets(),
-		Digest:   cfg.Digest().Schedule(),
-		Started:  time.Now(),
-		Now:      time.Now,
-	}).Run(ctx, evaluate.Interval)
+	evaluating := make(chan struct{})
+	go func() {
+		defer close(evaluating)
+		evaluate.New(evaluate.Options{
+			Store:    store,
+			Notifier: channel,
+			Targets:  cfg.Targets(),
+			Digest:   cfg.Digest(),
+			Started:  time.Now(),
+			Now:      time.Now,
+		}).Run(ctx, evaluate.Interval)
+	}()
+	// The pass writes to the database the deferred Close closes, so the stop waits for it:
+	// a delivery recorded after the handle went away would be re-sent on the next start.
+	defer func() { <-evaluating }()
 
 	server := &http.Server{
 		Addr:              opts.listen,

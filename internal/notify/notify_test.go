@@ -223,3 +223,21 @@ func TestTheTelegramChannelReportsARefusal(t *testing.T) {
 		t.Fatalf("the error carries the bot token: %v", err)
 	}
 }
+
+// spec: evaluation.md#messages — an error never carries the bot's credentials: the request
+// URL holds the token, and a transport failure quotes that URL back
+// (ADR 0007 rule 4).
+func TestATransportFailureNeverQuotesTheToken(t *testing.T) {
+	// A port nothing listens on: the client fails before it has a response.
+	channel := notify.Telegram{
+		Token: "123456:AAsecretTOKENvalue", ChatID: "1",
+		Locale: i18n.English, API: "http://127.0.0.1:1",
+	}
+	err := channel.Notify(context.Background(), entering())
+	if err == nil {
+		t.Fatal("a refused connection was counted as a delivery")
+	}
+	if strings.Contains(err.Error(), "AAsecretTOKENvalue") {
+		t.Fatalf("the error carries the bot token: %v", err)
+	}
+}

@@ -2,6 +2,7 @@ package evaluate
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/pravbeseda/monitor/internal/storage"
@@ -46,25 +47,37 @@ func instant(change storage.Transition) bool {
 	return change.To == Critical.String() || change.From == Critical.String()
 }
 
+// storedLevel reads a level out of the event log. A name this build does not know is
+// logged rather than allowed to read as `ok` in a message: the log outlives any one build.
+func storedLevel(text, node, rule string) Level {
+	found, readable := ParseLevel(text)
+	if !readable {
+		slog.Warn("a recorded level this build does not know",
+			"node", node, "rule", rule, "level", text)
+	}
+	return found
+}
+
+// message is one notification about a subject. The subject's identity is always the same
+// three fields; what a message is about is the rest.
+func message(s Subject, from, to Level, readings map[string]float64, since, at time.Time) Message {
+	return Message{
+		Node: s.Node, Rule: s.Rule, Labels: s.Labels,
+		From: from, To: to, Readings: readings, Since: since, At: at,
+	}
+}
+
 // due decides what a subject is owed. Delivery is driven by the subject's newest event
 // against last_notified_at rather than by what changed on this tick, so a send that failed
 // is tried again instead of being lost.
 func due(s Subject, newest storage.Transition, recorded bool, now time.Time) (Message, bool) {
 	if recorded && instant(newest) && newest.At.After(s.LastNotifiedAt) {
-		from, _ := ParseLevel(newest.From)
-		to, _ := ParseLevel(newest.To)
-		return Message{
-			Node: s.Node, Rule: s.Rule, Labels: s.Labels,
-			From: from, To: to, Readings: newest.Readings,
-			Since: newest.FromSince, At: newest.At,
-		}, true
+		from := storedLevel(newest.From, s.Node, s.Rule)
+		to := storedLevel(newest.To, s.Node, s.Rule)
+		return message(s, from, to, newest.Readings, newest.FromSince, newest.At), true
 	}
 	if s.Level == Critical && (s.LastNotifiedAt.IsZero() || now.Sub(s.LastNotifiedAt) >= repeatAfter) {
-		return Message{
-			Node: s.Node, Rule: s.Rule, Labels: s.Labels,
-			From: s.Level, To: s.Level, Readings: s.Readings,
-			Since: s.Since, At: now,
-		}, true
+		return message(s, s.Level, s.Level, s.Readings, s.Since, now), true
 	}
 	return Message{}, false
 }

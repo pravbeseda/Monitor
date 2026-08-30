@@ -27,10 +27,13 @@ func Render(p *i18n.Printer, m evaluate.Message) string {
 		subject += " " + mount
 	}
 
-	line := fmt.Sprintf(p.T("notify.changed"),
-		subject, p.T(levelKeys[m.To]), p.T(levelKeys[m.From]), p.Time(m.Since))
+	var line string
 	if m.From == m.To {
-		line = fmt.Sprintf(p.T("notify.standing"), subject, p.T(levelKeys[m.To]), p.Time(m.Since))
+		line = fmt.Sprintf(p.T("notify.standing"),
+			subject, p.T(levelKeys[m.To]), p.Time(m.Since))
+	} else {
+		line = fmt.Sprintf(p.T("notify.changed"),
+			subject, p.T(levelKeys[m.To]), p.T(levelKeys[m.From]), p.Time(m.Since))
 	}
 	if detail := detail(p, m); detail != "" {
 		line += " — " + detail

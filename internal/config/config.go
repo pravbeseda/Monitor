@@ -44,38 +44,14 @@ type Node struct {
 	Agent        Agent
 	// Version identifies Agent, not the node: identical configurations share it.
 	Version string
-	// rules judge a volume the file says nothing about; volumes carries the rules of the
-	// mounts it names, already resolved from the branch each one's role selects. Neither
-	// reaches an agent: thresholds are the hub's business (ADR 0012).
-	rules   map[string]evaluate.Rule
-	volumes map[string]map[string]evaluate.Rule
+	// target is what evaluation reads of this node. It travels apart from Agent because
+	// none of it ever reaches one: thresholds are the hub's business (ADR 0012).
+	target evaluate.Target
 }
 
 // Target is what evaluation reads of this node (ADR 0015): the silence window, the
-// interval of every sensor the node actually runs, and the thresholds. None of it reaches
-// an agent, which is why it travels apart from Agent.
-func (n Node) Target() evaluate.Target {
-	intervals := make(map[string]time.Duration, len(n.Agent.Sensors))
-	for name, sensor := range n.Agent.Sensors {
-		// A sensor delivered as disabled collects nothing, so the rules that read it have
-		// no subjects here: an interval it never honours would only freeze them later.
-		if sensor.Enabled {
-			intervals[name] = sensor.Interval
-		}
-	}
-	return evaluate.Target{
-		Node:         n.Name,
-		SilenceAfter: n.SilenceAfter,
-		Intervals:    intervals,
-		Rules:        n.rules,
-		Volumes:      n.volumes,
-	}
-}
-
-// Rule returns the thresholds that judge one subject of this node.
-func (n Node) Rule(name, mount string) (evaluate.Rule, bool) {
-	return evaluate.Target{Rules: n.rules, Volumes: n.volumes}.Rule(name, mount)
-}
+// interval of every sensor the node actually runs, and the thresholds.
+func (n Node) Target() evaluate.Target { return n.target }
 
 // String keeps every token out of a debug print of the whole configuration (ADR 0007).
 func (n Node) String() string {
@@ -86,7 +62,7 @@ func (n Node) String() string {
 // belong to no node.
 type Config struct {
 	nodes  map[string]Node
-	digest Digest
+	digest evaluate.Schedule
 	notify Notify
 }
 
@@ -97,7 +73,7 @@ func (c *Config) String() string {
 }
 
 // Digest is when the daily digest goes out.
-func (c *Config) Digest() Digest { return c.digest }
+func (c *Config) Digest() evaluate.Schedule { return c.digest }
 
 // Notify is how notifications leave the hub, secrets included.
 func (c *Config) Notify() Notify { return c.notify }

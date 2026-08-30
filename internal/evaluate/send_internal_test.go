@@ -14,7 +14,10 @@ func (s stuck) Notify(context.Context, Message) error {
 	return nil
 }
 
-func (s stuck) Digest(context.Context, time.Time, []Message) error { return nil }
+func (s stuck) Digest(context.Context, time.Time, []Message) error {
+	<-s.released
+	return nil
+}
 
 // spec: evaluation.md#the-tick — a notifier that does not return cannot hold evaluation
 // open: the send is abandoned and counted as a failure.
@@ -28,7 +31,12 @@ func TestASendThatNeverAnswersIsAbandoned(t *testing.T) {
 	})
 
 	evaluator := New(Options{Notifier: channel, Now: time.Now})
-	if err := evaluator.send(context.Background(), Message{}); err == nil {
-		t.Fatal("a channel that never answered was counted as a delivery")
+	for name, deliver := range map[string]func(context.Context) error{
+		"a message": func(ctx context.Context) error { return channel.Notify(ctx, Message{}) },
+		"a digest":  func(ctx context.Context) error { return channel.Digest(ctx, time.Time{}, nil) },
+	} {
+		if err := evaluator.send(context.Background(), deliver); err == nil {
+			t.Fatalf("%s the channel never answered was counted as a delivery", name)
+		}
 	}
 }

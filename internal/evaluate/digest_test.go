@@ -328,3 +328,27 @@ func TestTwoMissedDaysSendOneDigest(t *testing.T) {
 		t.Fatalf("the window closed at %v, want %v", got, occurrence)
 	}
 }
+
+// spec: evaluation.md#notifications — warning → ok touches no critical, so it waits for the
+// digest rather than going out at once.
+func TestARecoveryFromWarningIsCarriedByTheDigest(t *testing.T) {
+	db := open(t)
+	warned(t, db, yesterday.Add(time.Hour), "/data")
+	mark(t, db, yesterday)
+
+	at := occurrence.Add(time.Hour)
+	collect(t, db, at, volume("/data"), 40e9, 31.25)
+	channel := &recorder{}
+	pass(t, digesting(db, channel, at, watching(t)))
+
+	if got := channel.sent(); len(got) != 0 {
+		t.Fatalf("a recovery from warning was delivered at once: %+v", got)
+	}
+	summaries := channel.summaries()
+	if len(summaries) != 1 || len(summaries[0]) != 1 {
+		t.Fatalf("the digest carried %v, want the recovery", summaries)
+	}
+	if entry := summaries[0][0]; entry.From != evaluate.Warning || entry.To != evaluate.OK {
+		t.Fatalf("the entry reads %v → %v, want warning → ok", entry.From, entry.To)
+	}
+}

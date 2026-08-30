@@ -19,7 +19,7 @@ func TestExampleFileResolves(t *testing.T) {
 	if len(cfg.Nodes()) != 2 {
 		t.Fatalf("the example resolved %d nodes, want 2", len(cfg.Nodes()))
 	}
-	backup, ok := node(t, cfg, "server-b").Rule("disk", "/data/backup")
+	backup, ok := node(t, cfg, "server-b").Target().Rule("disk", "/data/backup")
 	if !ok {
 		t.Fatal("the example's backup volume has no rule")
 	}

@@ -100,12 +100,6 @@ func (s *SQLite) Snapshot(ctx context.Context) (Snapshot, error) {
 	return out, nil
 }
 
-// LoadStates returns every subject the hub has seen, so a tick starts from what a restart
-// left behind rather than from nothing.
-func (s *SQLite) LoadStates(ctx context.Context) ([]State, error) {
-	return loadStates(ctx, s.db)
-}
-
 func loadStates(ctx context.Context, from querier) ([]State, error) {
 	rows, err := from.QueryContext(ctx, `
 		SELECT node, rule, labels, level, since, last_notified_at
@@ -234,12 +228,6 @@ func (s *SQLite) RecordNotified(ctx context.Context, subject Subject, at time.Ti
 	return nil
 }
 
-// NewestEvents returns the latest transition of every subject, which is what delivery is
-// driven by: an event newer than what the subject was last notified about is still due.
-func (s *SQLite) NewestEvents(ctx context.Context) ([]Transition, error) {
-	return newestEvents(ctx, s.db)
-}
-
 func newestEvents(ctx context.Context, from querier) ([]Transition, error) {
 	return readEvents(ctx, from, `
 		SELECT id, at, node, rule, labels, from_level, to_level, from_since, readings FROM (
@@ -296,7 +284,8 @@ func readEvents(ctx context.Context, from querier, query string, args ...any) ([
 	return out, nil
 }
 
-// LastDigestAt is when the last digest went out, and whether one ever did.
+// LastDigestAt is when the last digest went out, and whether one ever did. A database
+// that has never digested is where the hub's own start time takes over.
 func (s *SQLite) LastDigestAt(ctx context.Context) (time.Time, bool, error) {
 	var value string
 	err := s.db.QueryRowContext(ctx, `SELECT value FROM meta WHERE key = ?`, lastDigestKey).Scan(&value)

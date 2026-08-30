@@ -72,10 +72,11 @@ func pass(t *testing.T, e *evaluate.Evaluator) {
 // levelOf returns the stored level of one subject, or "" when it has none.
 func levelOf(t *testing.T, db *storage.SQLite, rule, mount string) storage.State {
 	t.Helper()
-	states, err := db.LoadStates(context.Background())
+	snapshot, err := db.Snapshot(context.Background())
 	if err != nil {
-		t.Fatalf("LoadStates: %v", err)
+		t.Fatalf("Snapshot: %v", err)
 	}
+	states := snapshot.States
 	for _, state := range states {
 		if state.Rule == rule && state.Labels["mount"] == mount {
 			return state

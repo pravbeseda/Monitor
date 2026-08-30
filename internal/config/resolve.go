@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pravbeseda/monitor/internal/evaluate"
 )
 
 // versionLength keeps the version short enough to read in a log line and long enough that
@@ -62,6 +64,15 @@ func resolve(f file, name string, entry fileNode) (Node, error) {
 		return Node{}, fmt.Errorf("node %s: %w", name, err)
 	}
 
+	// A sensor delivered as disabled collects nothing, so the rules that read it have no
+	// subjects: an interval the agent never honours would only freeze them later.
+	intervals := make(map[string]time.Duration, len(sensors))
+	for sensor, settings := range sensors {
+		if settings.Enabled {
+			intervals[sensor] = settings.Interval
+		}
+	}
+
 	return Node{
 		Name:         name,
 		Class:        entry.Class,
@@ -69,8 +80,13 @@ func resolve(f file, name string, entry fileNode) (Node, error) {
 		SilenceAfter: silenceAfter,
 		Agent:        agent,
 		Version:      version,
-		rules:        rules,
-		volumes:      volumes,
+		target: evaluate.Target{
+			Node:         name,
+			SilenceAfter: silenceAfter,
+			Intervals:    intervals,
+			Rules:        rules,
+			Volumes:      volumes,
+		},
 	}, nil
 }
 

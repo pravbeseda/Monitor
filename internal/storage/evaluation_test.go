@@ -31,9 +31,9 @@ func transition(subject Subject, at time.Time, from, to string) Transition {
 
 func (s *SQLite) statesByMount(t *testing.T) map[string]State {
 	t.Helper()
-	loaded, err := s.LoadStates(context.Background())
+	loaded, err := loadStates(context.Background(), s.db)
 	if err != nil {
-		t.Fatalf("LoadStates: %v", err)
+		t.Fatalf("read states: %v", err)
 	}
 	out := make(map[string]State, len(loaded))
 	for _, state := range loaded {
@@ -190,8 +190,8 @@ func TestSaveStateLeavesAKnownSubjectAlone(t *testing.T) {
 	}
 }
 
-// The same transition applied twice — a retry — leaves one event, the way a re-sent batch
-// of measurements leaves one reading.
+// spec: evaluation.md#persistence-and-restart — the same transition written twice is one
+// event: a retry of a change is not a second change.
 func TestApplyTransitionTwiceRecordsOneEvent(t *testing.T) {
 	db := open(t)
 	ctx := context.Background()
@@ -262,12 +262,12 @@ func TestNewestEventPerSubject(t *testing.T) {
 		t.Fatalf("ApplyTransition: %v", err)
 	}
 
-	newest, err := db.NewestEvents(ctx)
+	newest, err := newestEvents(ctx, db.db)
 	if err != nil {
-		t.Fatalf("NewestEvents: %v", err)
+		t.Fatalf("read the newest events: %v", err)
 	}
 	if len(newest) != 2 {
-		t.Fatalf("NewestEvents returned %d subjects, want 2", len(newest))
+		t.Fatalf("the newest events cover %d subjects, want 2", len(newest))
 	}
 	for _, event := range newest {
 		if event.Labels["mount"] == "/" && (event.To != "critical" || !event.At.Equal(tickTwo)) {
@@ -276,8 +276,8 @@ func TestNewestEventPerSubject(t *testing.T) {
 	}
 }
 
-// A database written by a newer hub is refused rather than run against a schema this build
-// does not understand.
+// spec: evaluation.md#persistence-and-restart — data written by a newer hub makes the hub
+// refuse to start rather than judge subjects against a shape it does not know.
 func TestOpeningANewerDatabase(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "monitor.db")
 	db, err := OpenSQLite(path)

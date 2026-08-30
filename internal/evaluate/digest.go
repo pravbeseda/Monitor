@@ -55,7 +55,9 @@ func (e *Evaluator) digest(ctx context.Context, subjects []Subject, now time.Tim
 		return err
 	}
 	if len(entries) > 0 {
-		if err := e.notifier.Digest(ctx, occurrence, entries); err != nil {
+		if err := e.send(ctx, func(ctx context.Context) error {
+			return e.notifier.Digest(ctx, occurrence, entries)
+		}); err != nil {
 			// The window stays open, so the next tick sends the same one again.
 			slog.Error("deliver the digest", "at", occurrence, "error", err)
 			return nil
@@ -64,21 +66,24 @@ func (e *Evaluator) digest(ctx context.Context, subjects []Subject, now time.Tim
 	return e.store.SetLastDigestAt(ctx, occurrence)
 }
 
-// entries is what the digest lists: every warning transition of the window and every
-// subject standing in warning, one line per subject, in the order subjects come out in. A
-// frozen subject is neither, because its values are stale.
+// entries is what the digest lists: every transition of the window that was not delivered
+// at once, and every subject standing in warning, one line per subject, in the order
+// subjects come out in. A frozen subject is neither, because its values are stale.
 func (e *Evaluator) entries(ctx context.Context, subjects []Subject, since, now, occurrence time.Time) ([]Message, error) {
 	events, err := e.store.EventsBetween(ctx, since, now)
 	if err != nil {
 		return nil, err
 	}
-	entered := make(map[string]storage.Transition, len(events))
+	moved := make(map[string]storage.Transition, len(events))
 	for _, event := range events {
-		if event.To != Warning.String() {
+		// Everything critical touches was delivered at once (ADR 0016); what waits for
+		// the digest is exactly the transitions between ok and warning, in both
+		// directions. The latest one of a subject wins, so it is listed once.
+		if instant(event) {
 			continue
 		}
 		if key, err := event.Key(); err == nil {
-			entered[key] = event
+			moved[key] = event
 		}
 	}
 
@@ -91,21 +96,14 @@ func (e *Evaluator) entries(ctx context.Context, subjects []Subject, since, now,
 		if err != nil {
 			continue
 		}
-		if event, moved := entered[key]; moved {
-			from, _ := ParseLevel(event.From)
-			out = append(out, Message{
-				Node: subject.Node, Rule: subject.Rule, Labels: subject.Labels,
-				From: from, To: Warning, Readings: event.Readings,
-				Since: event.FromSince, At: event.At,
-			})
+		if event, changed := moved[key]; changed {
+			from := storedLevel(event.From, subject.Node, subject.Rule)
+			to := storedLevel(event.To, subject.Node, subject.Rule)
+			out = append(out, message(subject, from, to, event.Readings, event.FromSince, event.At))
 			continue
 		}
 		if subject.Level == Warning {
-			out = append(out, Message{
-				Node: subject.Node, Rule: subject.Rule, Labels: subject.Labels,
-				From: Warning, To: Warning, Readings: subject.Readings,
-				Since: subject.Since, At: occurrence,
-			})
+			out = append(out, message(subject, Warning, Warning, subject.Readings, subject.Since, occurrence))
 		}
 	}
 	return out, nil

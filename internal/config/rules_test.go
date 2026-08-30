@@ -10,7 +10,7 @@ import (
 
 func rule(t *testing.T, cfg *config.Config, nodeName, ruleName, mount string) evaluate.Rule {
 	t.Helper()
-	found, ok := node(t, cfg, nodeName).Rule(ruleName, mount)
+	found, ok := node(t, cfg, nodeName).Target().Rule(ruleName, mount)
 	if !ok {
 		t.Fatalf("node %s has no %s rule for %q", nodeName, ruleName, mount)
 	}
@@ -82,7 +82,7 @@ func TestRulesReject(t *testing.T) {
 			want: "ratio",
 		},
 		{
-			name: "a ceiling without a ratio",
+			name: "half a band removed, so the other half would be ignored",
 			body: "rules:\n  disk:\n    warning: { ratio: 0, ceiling: 90GB }\n" + minimal,
 			want: "band",
 		},
@@ -135,7 +135,9 @@ func TestRulesReject(t *testing.T) {
 		{
 			name: "an inversion introduced by a volume",
 			body: volumes("      \"/data\":\n        rules:\n          disk:\n            warning: { floor: 1GB }\n"),
-			want: "critical floor",
+			// The error has to name the node, the volume and the field, so that a file
+			// with many volumes says which one to fix.
+			want: "node laptop-a: volume \"/data\": rules.disk: the critical floor",
 		},
 		{
 			name: "a backup branch on a volume",
@@ -321,7 +323,21 @@ nodes:
 
 // A rule the hub does not implement has no thresholds to hand out.
 func TestUnknownRuleHasNoThresholds(t *testing.T) {
-	if _, ok := node(t, load(t, minimal), "laptop-a").Rule("silence", "/"); ok {
+	if _, ok := node(t, load(t, minimal), "laptop-a").Target().Rule("silence", "/"); ok {
 		t.Fatal("silence resolved to a rule")
+	}
+}
+
+// spec: evaluation.md#configuration-changes — a `volumes` entry for a mount no measurement
+// has ever carried does not stop the hub; the override waits for that volume to appear.
+func TestAVolumeNoMeasurementHasCarriedStillStarts(t *testing.T) {
+	cfg := load(t, volumes("      \"/data/backup\": { role: backup }\n"))
+	target := node(t, cfg, "laptop-a").Target()
+
+	if _, named := target.Volumes["/data/backup"]; !named {
+		t.Fatal("the override was dropped, so it could not apply if the volume appeared")
+	}
+	if _, ok := target.Rule("disk", "/"); !ok {
+		t.Fatal("a mount no volumes entry names lost the node's own rule")
 	}
 }

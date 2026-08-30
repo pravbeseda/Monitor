@@ -316,11 +316,11 @@ type beforeSending struct {
 }
 
 func (b *beforeSending) Notify(ctx context.Context, m evaluate.Message) error {
-	states, err := b.db.LoadStates(ctx)
+	snapshot, err := b.db.Snapshot(ctx)
 	if err != nil {
 		return err
 	}
-	for _, state := range states {
+	for _, state := range snapshot.States {
 		if state.Rule == m.Rule && state.Labels["mount"] == m.Labels["mount"] {
 			b.level = state.Level
 		}
@@ -329,3 +329,41 @@ func (b *beforeSending) Notify(ctx context.Context, m evaluate.Message) error {
 }
 
 func (b *beforeSending) Digest(context.Context, time.Time, []evaluate.Message) error { return nil }
+
+// spec: evaluation.md#node-silence — a node still silent says nothing again until a day has
+// passed, and then says it once more.
+func TestSilenceRepeatsOnceADay(t *testing.T) {
+	db := open(t)
+	beat(t, db, tick)
+	silent := tick.Add(silenceAfter + time.Minute)
+	if got := delivered(t, db, silent, watching(t)); len(got) != 1 {
+		t.Fatalf("the first silence delivered %d messages", len(got))
+	}
+
+	soon := silent.Add(23 * time.Hour)
+	if got := delivered(t, db, soon, watching(t)); len(got) != 0 {
+		t.Fatalf("a silence under a day old repeated: %+v", got)
+	}
+
+	due := silent.Add(24 * time.Hour)
+	got := delivered(t, db, due, watching(t))
+	if len(got) != 1 || got[0].Rule != evaluate.SilenceRule || got[0].From != evaluate.Critical {
+		t.Fatalf("a day-old silence delivered %+v, want one repeat", got)
+	}
+}
+
+// spec: evaluation.md#freezing — a frozen subject sends no repeat, however long ago it was
+// last notified.
+func TestAFrozenCriticalSendsNoRepeat(t *testing.T) {
+	db := open(t)
+	collect(t, db, tick, volume("/"), 3e9, 2.34)
+	pass(t, evaluator(db, tick, watching(t)))
+
+	// A day later the volume is long stale, and the node has kept reporting, so only
+	// freezing can hold the repeat back.
+	due := tick.Add(24 * time.Hour)
+	beat(t, db, due)
+	if got := delivered(t, db, due, watching(t)); len(got) != 0 {
+		t.Fatalf("a stale critical repeated: %+v", got)
+	}
+}

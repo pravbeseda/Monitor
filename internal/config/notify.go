@@ -22,18 +22,6 @@ const (
 	telegramChatIDEnv = "MONITOR_TELEGRAM_CHAT_ID"
 )
 
-// Digest is when the daily digest goes out. The zone comes from the file rather than from
-// the host, so moving the hub to another machine cannot move the hour it arrives.
-type Digest struct {
-	Hour, Minute int
-	Location     *time.Location
-}
-
-// Schedule is the digest hour as evaluation reads it.
-func (d Digest) Schedule() evaluate.Schedule {
-	return evaluate.Schedule{Hour: d.Hour, Minute: d.Minute, Location: d.Location}
-}
-
 // Telegram is what the bot needs to send. It is empty unless the channel is telegram.
 type Telegram struct {
 	Token, ChatID string
@@ -46,22 +34,24 @@ type Notify struct {
 	Telegram Telegram
 }
 
-func resolveDigest(f fileDigest) (Digest, error) {
+// resolveDigest reads when the daily digest goes out. The zone comes from the file rather
+// than from the host, so moving the hub to another machine cannot move the hour it arrives.
+func resolveDigest(f fileDigest) (evaluate.Schedule, error) {
 	at := last(defaultDigestAt, f.At)
 	parsed, err := time.Parse("15:04", at)
 	if err != nil {
-		return Digest{}, fmt.Errorf("digest.at: %q is not an hour of the day, which is written as HH:MM", at)
+		return evaluate.Schedule{}, fmt.Errorf("digest.at: %q is not an hour of the day, which is written as HH:MM", at)
 	}
 
 	zone := last(defaultDigestZone, f.Timezone)
 	if zone == "Local" {
-		return Digest{}, fmt.Errorf("digest.timezone: %q follows the host, so the digest hour would move with the machine; name a zone such as UTC or Europe/Berlin", zone)
+		return evaluate.Schedule{}, fmt.Errorf("digest.timezone: %q follows the host, so the digest hour would move with the machine; name a zone such as UTC or Europe/Berlin", zone)
 	}
 	location, err := time.LoadLocation(zone)
 	if err != nil {
-		return Digest{}, fmt.Errorf("digest.timezone: %q is not a zone this system carries, which is an IANA name such as Europe/Berlin", zone)
+		return evaluate.Schedule{}, fmt.Errorf("digest.timezone: %q is not a zone this system carries, which is an IANA name such as Europe/Berlin", zone)
 	}
-	return Digest{Hour: parsed.Hour(), Minute: parsed.Minute(), Location: location}, nil
+	return evaluate.Schedule{Hour: parsed.Hour(), Minute: parsed.Minute(), Location: location}, nil
 }
 
 func resolveNotify(f fileNotify) (Notify, error) {

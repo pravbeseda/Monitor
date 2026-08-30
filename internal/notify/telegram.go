@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/pravbeseda/monitor/internal/evaluate"
@@ -33,7 +35,7 @@ type Telegram struct {
 
 var _ evaluate.Notifier = Telegram{}
 
-// Notify sends one message to the configured chat.
+// Notify renders the message in the configured locale and sends it.
 func (t Telegram) Notify(ctx context.Context, m evaluate.Message) error {
 	return t.send(ctx, Render(i18n.For(t.Locale), m))
 }
@@ -52,8 +54,8 @@ func (t Telegram) send(ctx context.Context, text string) error {
 		return fmt.Errorf("encode a telegram message: %w", err)
 	}
 
-	url := t.api() + "/bot" + t.Token + "/sendMessage"
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	endpoint := t.api() + "/bot" + t.Token + "/sendMessage"
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		// The URL carries the token, so it is never quoted back.
 		return fmt.Errorf("build the telegram request: %w", err)
@@ -62,6 +64,12 @@ func (t Telegram) send(ctx context.Context, text string) error {
 
 	response, err := t.client().Do(request)
 	if err != nil {
+		// Do wraps the request URL into its error, and that URL carries the token. Only
+		// the cause is kept, which names the host and never the path (ADR 0007 rule 4).
+		var wrapped *url.Error
+		if errors.As(err, &wrapped) {
+			err = wrapped.Err
+		}
 		return fmt.Errorf("send to telegram: %w", err)
 	}
 	defer func() { _ = response.Body.Close() }()

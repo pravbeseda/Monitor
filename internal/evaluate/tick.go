@@ -118,7 +118,9 @@ func (e *Evaluator) deliver(ctx context.Context, subject Subject, newest storage
 	if !owed {
 		return
 	}
-	if err := e.send(ctx, message); err != nil {
+	if err := e.send(ctx, func(ctx context.Context) error {
+		return e.notifier.Notify(ctx, message)
+	}); err != nil {
 		slog.Error("deliver a notification",
 			"node", subject.Node, "rule", subject.Rule, "error", err)
 		return
@@ -129,15 +131,16 @@ func (e *Evaluator) deliver(ctx context.Context, subject Subject, newest storage
 	}
 }
 
-// send hands one message to the channel and gives up on it after sendTimeout. The
+// send hands one delivery to the channel and gives up on it after sendTimeout. The
 // abandoned call keeps its buffered slot, so a channel that answers late does not block a
-// goroutine for good.
-func (e *Evaluator) send(ctx context.Context, message Message) error {
+// goroutine for good. Every delivery goes through here, the digest included: one stuck
+// send would otherwise hold the pass open and every tick after it would be skipped.
+func (e *Evaluator) send(ctx context.Context, deliver func(context.Context) error) error {
 	ctx, cancel := context.WithTimeout(ctx, sendTimeout)
 	defer cancel()
 
 	answered := make(chan error, 1)
-	go func() { answered <- e.notifier.Notify(ctx, message) }()
+	go func() { answered <- deliver(ctx) }()
 	select {
 	case err := <-answered:
 		return err
