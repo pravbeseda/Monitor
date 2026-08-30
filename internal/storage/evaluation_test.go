@@ -246,18 +246,23 @@ func TestStatesSurviveAReopen(t *testing.T) {
 func TestNewestEventPerSubject(t *testing.T) {
 	db := open(t)
 	ctx := context.Background()
+	tickThree := tickTwo.Add(time.Minute)
 
+	// The volume alerts, recovers to warning and then to ok. Only the first two could
+	// owe a message; the last must not hide the one before it.
 	for _, step := range []struct {
 		at       time.Time
 		from, to string
 	}{
-		{tickOne, "ok", "warning"},
-		{tickTwo, "warning", "critical"},
+		{tickOne, "ok", "critical"},
+		{tickTwo, "critical", "warning"},
+		{tickThree, "warning", "ok"},
 	} {
 		if err := db.ApplyTransition(ctx, transition(volume("/"), step.at, step.from, step.to)); err != nil {
 			t.Fatalf("ApplyTransition: %v", err)
 		}
 	}
+	// A volume that never touched critical owes nothing at all.
 	if err := db.ApplyTransition(ctx, transition(volume("/data"), tickOne, "ok", "warning")); err != nil {
 		t.Fatalf("ApplyTransition: %v", err)
 	}
@@ -266,13 +271,11 @@ func TestNewestEventPerSubject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read the newest events: %v", err)
 	}
-	if len(newest) != 2 {
-		t.Fatalf("the newest events cover %d subjects, want 2", len(newest))
+	if len(newest) != 1 {
+		t.Fatalf("the newest owed events cover %d subjects, want the one that reached critical", len(newest))
 	}
-	for _, event := range newest {
-		if event.Labels["mount"] == "/" && (event.To != "critical" || !event.At.Equal(tickTwo)) {
-			t.Fatalf("the newest event of / is %+v", event)
-		}
+	if got := newest[0]; got.Labels["mount"] != "/" || got.To != "warning" || !got.At.Equal(tickTwo) {
+		t.Fatalf("the newest owed event is %+v, want the recovery out of critical", got)
 	}
 }
 
@@ -399,7 +402,7 @@ func TestSnapshotReadsEveryPartTogether(t *testing.T) {
 	if err := db.SaveIngest(ctx, ingest("server-b", tickOne, measurement)); err != nil {
 		t.Fatalf("SaveIngest: %v", err)
 	}
-	if err := db.ApplyTransition(ctx, transition(volume("/"), tickOne, "ok", "warning")); err != nil {
+	if err := db.ApplyTransition(ctx, transition(volume("/"), tickOne, "ok", "critical")); err != nil {
 		t.Fatalf("ApplyTransition: %v", err)
 	}
 
@@ -410,10 +413,10 @@ func TestSnapshotReadsEveryPartTogether(t *testing.T) {
 	if len(snapshot.Nodes) != 1 || len(snapshot.Nodes[0].Values) != 1 {
 		t.Fatalf("nodes = %+v, want one node with one series", snapshot.Nodes)
 	}
-	if len(snapshot.States) != 1 || snapshot.States[0].Level != "warning" {
+	if len(snapshot.States) != 1 || snapshot.States[0].Level != "critical" {
 		t.Fatalf("states = %+v, want the stored level", snapshot.States)
 	}
-	if len(snapshot.Newest) != 1 || snapshot.Newest[0].To != "warning" {
+	if len(snapshot.Newest) != 1 || snapshot.Newest[0].To != "critical" {
 		t.Fatalf("newest = %+v, want the transition just written", snapshot.Newest)
 	}
 }

@@ -367,3 +367,47 @@ func TestAFrozenCriticalSendsNoRepeat(t *testing.T) {
 		t.Fatalf("a stale critical repeated: %+v", got)
 	}
 }
+
+// spec: evaluation.md#notifications — an instant event newer than `last_notified_at` is
+// delivered whatever the level has become since, so a quieter change recorded after it
+// must not bury it.
+func TestAFailedInstantEventSurvivesAQuieterChange(t *testing.T) {
+	db := open(t)
+	collect(t, db, tick, volume("/"), 3e9, 2.34)
+	pass(t, evaluator(db, tick, watching(t)))
+
+	// The recovery out of critical is instant, and its send fails.
+	leaving := tick.Add(time.Minute)
+	collect(t, db, leaving, volume("/"), 6e9, 30.00)
+	down := &recorder{failing: map[string]bool{"/": true}}
+	pass(t, evaluatorWith(db, down, leaving, watching(t)))
+
+	// The volume then leaves warning too, which nothing delivers at once.
+	quiet := leaving.Add(time.Minute)
+	collect(t, db, quiet, volume("/"), 40e9, 31.25)
+	got := delivered(t, db, quiet, watching(t))
+
+	if len(got) != 1 || got[0].From != evaluate.Critical || got[0].To != evaluate.Warning {
+		t.Fatalf("the retry delivered %+v, want the recovery out of critical", got)
+	}
+}
+
+// spec: evaluation.md#freezing — freezing withholds judgement of stale values, not a
+// message already recorded from fresh ones: a send that failed before the subject froze is
+// still tried again.
+func TestAFrozenSubjectStillDeliversWhatItAlreadyRecorded(t *testing.T) {
+	db := open(t)
+	collect(t, db, tick, volume("/"), 3e9, 2.34)
+	down := &recorder{failing: map[string]bool{"/": true}}
+	pass(t, evaluatorWith(db, down, tick, watching(t)))
+
+	// The volume stops reporting, so it is long stale by the time the channel recovers;
+	// the node itself keeps its heartbeat, so only freezing could hold the message back.
+	frozen := tick.Add(staleAfter + time.Minute)
+	beat(t, db, frozen)
+	got := delivered(t, db, frozen, watching(t))
+
+	if len(got) != 1 || got[0].To != evaluate.Critical || got[0].Labels["mount"] != "/" {
+		t.Fatalf("the frozen subject delivered %+v, want the message it had recorded", got)
+	}
+}

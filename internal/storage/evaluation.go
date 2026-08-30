@@ -12,6 +12,12 @@ import (
 // lastDigestKey is the one row the meta table holds today: when the last digest went out.
 const lastDigestKey = "last_digest_at"
 
+// criticalLevel is the level a notification is driven by: entering it or leaving it is
+// what a channel is told about at once, and everything else waits for the digest
+// (ADR 0016). It is evaluate's vocabulary, and storage knows it because the query for what
+// a subject is still owed cannot be written without it.
+const criticalLevel = "critical"
+
 // Subject is what has a level: one node, one rule, and the labels of the series that rule
 // reads together (docs/specs/evaluation.md).
 type Subject struct {
@@ -73,8 +79,10 @@ type Snapshot struct {
 	Nodes []NodeState
 	// States is the level every subject held when the tick began.
 	States []State
-	// Newest is the latest transition of every subject, which is what delivery is driven
-	// by: one newer than the subject's last_notified_at is still due.
+	// Newest is the latest transition of every subject that a channel could still owe a
+	// message for — one that entered or left critical. A later transition of a quieter
+	// kind must not hide it: a send that failed is owed whatever the subject has become
+	// since.
 	Newest []Transition
 }
 
@@ -235,9 +243,10 @@ func newestEvents(ctx context.Context, from querier) ([]Transition, error) {
 			       -- One subject changes level at most once per instant, which the events
 			       -- table enforces; id breaks a tie that therefore cannot arise.
 			       ROW_NUMBER() OVER (PARTITION BY node, rule, labels ORDER BY at DESC, id DESC) AS recency
-			FROM events)
+			FROM events
+			WHERE from_level = ? OR to_level = ?)
 		WHERE recency = 1
-		ORDER BY node, rule, labels`)
+		ORDER BY node, rule, labels`, criticalLevel, criticalLevel)
 }
 
 // EventsBetween returns the transitions recorded after from and up to and including to,
@@ -302,8 +311,9 @@ func (s *SQLite) LastDigestAt(ctx context.Context) (time.Time, bool, error) {
 	return at, true, nil
 }
 
-// SetLastDigestAt records the occurrence a digest covered, not the instant it was sent, so
-// a hub that was down for two days sends one digest rather than replaying the missed ones.
+// SetLastDigestAt records where the digest window closed, which is the tick that read it:
+// its caller reports on everything up to that instant, so anything stamped earlier would
+// fall inside the next window as well and be said twice (docs/specs/evaluation.md#digest).
 func (s *SQLite) SetLastDigestAt(ctx context.Context, at time.Time) error {
 	if _, err := s.db.ExecContext(ctx, `
 		INSERT INTO meta (key, value) VALUES (?, ?)

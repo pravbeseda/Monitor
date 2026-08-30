@@ -42,8 +42,13 @@ func (e *Evaluator) digest(ctx context.Context, subjects []Subject, now time.Tim
 	}
 	if !digested {
 		// A database that has never digested starts at this hub's first run, so history
-		// is never replayed.
+		// is never replayed — and that instant is written down at once, because a restart
+		// before the first digest would otherwise move the window's start forward and
+		// drop everything recorded in between.
 		since = e.started
+		if err := e.store.SetLastDigestAt(ctx, since); err != nil {
+			return err
+		}
 	}
 	// The occurrence decides whether a digest is due; the tick time records what has been
 	// reported, which is why it is the mark below.

@@ -408,3 +408,35 @@ func TestATransitionReportedOnceIsNotDigestedAgainTomorrow(t *testing.T) {
 		t.Fatalf("the recovery was digested a second time: %v", got)
 	}
 }
+
+// spec: evaluation.md#digest — the hub's first start is written down on the first tick, so
+// a restart before the first digest ever goes out does not move the window forward and
+// drop what was recorded in between.
+func TestTheFirstStartSurvivesARestart(t *testing.T) {
+	db := open(t)
+
+	// The first hub starts after its digest hour, so it never reaches one: nothing but
+	// the first start itself can mark where its window began.
+	started := occurrence.AddDate(0, 0, -1).Add(time.Hour)
+	recorded := started.Add(time.Hour)
+	collect(t, db, recorded, volume("/data"), 19e9, 14.84)
+	pass(t, evaluate.New(evaluate.Options{
+		Store: db, Notifier: &recorder{}, Targets: []evaluate.Target{watching(t)},
+		Digest: schedule, Started: started, Now: func() time.Time { return recorded },
+	}))
+
+	// It restarts the next day, so its own idea of "first start" moves; the database's
+	// does not, and the window still reaches back over the transition.
+	at := occurrence.Add(time.Hour)
+	collect(t, db, at, volume("/data"), 40e9, 31.25)
+	channel := &recorder{}
+	pass(t, evaluate.New(evaluate.Options{
+		Store: db, Notifier: channel, Targets: []evaluate.Target{watching(t)},
+		Digest: schedule, Started: at, Now: func() time.Time { return at },
+	}))
+
+	summaries := channel.summaries()
+	if len(summaries) != 1 || len(summaries[0]) != 1 || summaries[0][0].To != evaluate.OK {
+		t.Fatalf("the restarted hub digested %v, want the recovery it recorded", summaries)
+	}
+}

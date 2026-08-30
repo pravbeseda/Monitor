@@ -138,3 +138,15 @@ func TestLevelNames(t *testing.T) {
 		}
 	}
 }
+
+// A configured ratio carries whatever the file wrote, so its margin is not quantised to the
+// two decimals the sensor reports: 20% above 6.755 is 8.106, and 8.11% has cleared it.
+func TestARatioFinerThanTwoDecimalsKeepsItsMargin(t *testing.T) {
+	rule := evaluate.Rule{Warning: evaluate.Threshold{Floor: gb(10), Ratio: 6.755, Ceiling: gb(100)}}
+	if got := rule.Level(evaluate.Warning, gb(50), 8.11); got != evaluate.OK {
+		t.Fatalf("8.11%% is above the 8.106%% margin of 6.755%%, so the level is %v, want ok", got)
+	}
+	if got := rule.Level(evaluate.Warning, gb(50), 8.10); got != evaluate.Warning {
+		t.Fatalf("8.10%% is below that margin, so the level is %v, want warning", got)
+	}
+}

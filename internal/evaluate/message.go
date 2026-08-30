@@ -71,11 +71,18 @@ func message(s Subject, from, to Level, readings map[string]float64, since, at t
 // due decides what a subject is owed. Delivery is driven by the subject's newest event
 // against last_notified_at rather than by what changed on this tick, so a send that failed
 // is tried again instead of being lost.
+//
+// A frozen subject is owed the first kind and not the second: the event was recorded from
+// fresh values and is still undelivered, while a repeat would be a statement about values
+// nobody may judge any more.
 func due(s Subject, newest storage.Transition, recorded bool, now time.Time) (Message, bool) {
 	if recorded && instant(newest) && newest.At.After(s.LastNotifiedAt) {
 		from := storedLevel(newest.From, s.Node, s.Rule)
 		to := storedLevel(newest.To, s.Node, s.Rule)
 		return message(s, from, to, newest.Readings, newest.FromSince, newest.At), true
+	}
+	if s.Frozen {
+		return Message{}, false
 	}
 	if s.Level == Critical && (s.LastNotifiedAt.IsZero() || now.Sub(s.LastNotifiedAt) >= repeatAfter) {
 		return message(s, s.Level, s.Level, s.Readings, s.Since, now), true

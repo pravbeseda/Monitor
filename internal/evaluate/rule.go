@@ -41,14 +41,18 @@ func (t Threshold) left(free, pct float64) bool {
 // The margin is applied as 5×value against 6×threshold rather than as value against
 // 1.2×threshold, because 1.2 has no exact binary form and a value sitting exactly on its
 // margin must count as cleared. Byte counts are whole numbers, so both products are exact
-// for any volume the project will meet; percentages arrive with two decimals
-// (docs/specs/disk-sensor.md), so they are taken in hundredths first.
+// for any volume the project will meet.
 func clearedBytes(value, threshold float64) bool {
 	return value*marginDenominator >= threshold*marginNumerator
 }
 
+// Percentages arrive with two decimals (docs/specs/disk-sensor.md) but a configured ratio
+// carries whatever the file wrote, so it is the products that are rounded and not the
+// operands: rounding a threshold of 6.755 to hundredths would move its margin by 0.006
+// points and hold a subject at a level it has left. Rounding the product only absorbs the
+// float error, at a step of 1/500 of a point — far below what the sensor reports.
 func clearedPercent(value, threshold float64) bool {
-	return math.Round(value*100)*marginDenominator >= math.Round(threshold*100)*marginNumerator
+	return math.Round(value*100*marginDenominator) >= math.Round(threshold*100*marginNumerator)
 }
 
 // Rule is what gives one subject its level: the thresholds of both levels.

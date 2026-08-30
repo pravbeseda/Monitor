@@ -198,7 +198,9 @@ A 2 TB volume the node's `volumes` map declares as `role: backup`.
 ### Freezing
 
 Stale values are never re-evaluated: a frozen subject keeps its level and its `since`,
-writes no event, sends no repeat, and is left out of the digest.
+writes no event, sends no repeat, and is left out of the digest. What freezing withholds is
+judgement of stale values, not a record already written: a message recorded from fresh
+values and never delivered is still owed.
 
 `stale_after` is 3× the interval the node resolves for the rule's sensor
 ([hub-config.md](hub-config.md#resolution)). Age is the tick time minus the measurement's
@@ -215,6 +217,7 @@ own `ts`, measured against the **older** of the joined series.
 | the node resolves no interval for the rule's sensor | no subjects for that rule on that node |
 | a volume that reappears under different labels | a new subject starting at `ok`; the old one freezes |
 | the node reports again | evaluation resumes on the next tick, and a changed level writes one event |
+| a subject freezes with an instant message still undelivered | the message is delivered anyway: it was recorded from values that were fresh at the time |
 
 The `silence` subject is never frozen: its input is hub receipt time, which is always
 fresh. A skewed agent clock can freeze that agent's own subjects; freezing only holds

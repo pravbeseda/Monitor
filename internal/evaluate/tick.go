@@ -88,20 +88,24 @@ func (e *Evaluator) Tick(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if subject.Frozen {
-			continue
-		}
-		change, err := e.record(ctx, subject, now)
-		if err != nil {
-			return err
-		}
 		key, err := subject.Key()
 		if err != nil {
 			slog.Error("identify a subject", "node", subject.Node, "rule", subject.Rule, "error", err)
 			continue
 		}
-		if change != nil {
-			newest[key] = *change
+		// Stale values judge nothing, so a frozen subject writes no state and no event —
+		// but a message recorded from fresh values and never delivered is still owed,
+		// because delivery is driven by the record and not by the data behind it.
+		if !subject.Frozen {
+			change, err := e.record(ctx, subject, now)
+			if err != nil {
+				return err
+			}
+			// Only a change a channel could owe a message for replaces what the snapshot
+			// carried: a quieter one must not hide an instant event that never got out.
+			if change != nil && instant(*change) {
+				newest[key] = *change
+			}
 		}
 		event, recorded := newest[key]
 		e.deliver(ctx, subject, event, recorded, now)
