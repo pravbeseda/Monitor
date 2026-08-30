@@ -154,6 +154,16 @@ func (c *Config) Node(name string) (Node, bool) {
 	return node, ok
 }
 
+// Targets is every node as evaluation reads it, ordered by name: what a tick judges, and
+// none of it ever reaching an agent.
+func (c *Config) Targets() []evaluate.Target {
+	out := make([]evaluate.Target, 0, len(c.nodes))
+	for _, node := range c.Nodes() {
+		out = append(out, node.Target())
+	}
+	return out
+}
+
 // Nodes returns every configured node, ordered by name.
 func (c *Config) Nodes() []Node {
 	out := make([]Node, 0, len(c.nodes))

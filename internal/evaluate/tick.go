@@ -170,3 +170,24 @@ func (e *Evaluator) record(ctx context.Context, subject Subject, now time.Time) 
 	}
 	return &change, nil
 }
+
+// Interval is how often evaluation runs (ADR 0015). No configuration key changes it: the
+// pass is cheap, and a slower one would only delay every alert by the difference.
+const Interval = time.Minute
+
+// Run evaluates every `every` until ctx is cancelled. A pass that fails is logged and the
+// next one starts from the same snapshot, so nothing is retried by hand.
+func (e *Evaluator) Run(ctx context.Context, every time.Duration) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := e.Tick(ctx); err != nil && ctx.Err() == nil {
+				slog.Error("evaluation pass", "error", err)
+			}
+		}
+	}
+}

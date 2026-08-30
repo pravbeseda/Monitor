@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/pravbeseda/monitor/internal/config"
@@ -63,5 +64,25 @@ nodes:
 	plain, ok := got.Rule("disk", "/")
 	if !ok || plain.Warning.Ratio == 0 {
 		t.Fatalf("an unnamed volume resolved %+v, want the node's own rule", plain)
+	}
+}
+
+// spec: evaluation.md#the-tick — a tick judges every configured node, in the order messages
+// leave in.
+func TestTargetsCoverEveryNodeInOrder(t *testing.T) {
+	t.Setenv("MONITOR_TOKEN_SERVER_B", strings.Repeat("b", 40))
+	cfg := load(t, `
+nodes:
+  server-b:
+    class: server
+    token_env: MONITOR_TOKEN_SERVER_B
+  laptop-a:
+    class: laptop
+    token_env: MONITOR_TOKEN_LAPTOP_A
+`)
+
+	got := cfg.Targets()
+	if len(got) != 2 || got[0].Node != "laptop-a" || got[1].Node != "server-b" {
+		t.Fatalf("Targets() = %v, want both nodes ordered by name", got)
 	}
 }

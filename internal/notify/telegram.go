@@ -33,10 +33,12 @@ type Telegram struct {
 
 var _ evaluate.Notifier = Telegram{}
 
+// Notify sends one message to the configured chat.
 func (t Telegram) Notify(ctx context.Context, m evaluate.Message) error {
 	return t.send(ctx, Render(i18n.For(t.Locale), m))
 }
 
+// Digest sends the day's summary as one message, not one per subject.
 func (t Telegram) Digest(ctx context.Context, _ time.Time, entries []evaluate.Message) error {
 	return t.send(ctx, RenderDigest(i18n.For(t.Locale), entries))
 }
