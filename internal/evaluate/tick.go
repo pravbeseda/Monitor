@@ -24,15 +24,39 @@ type Evaluator struct {
 	now      func() time.Time
 	// targets is the configuration as evaluation reads it, resolved once at startup: the
 	// file is never re-read while the hub runs.
-	targets []Target
+	targets  []Target
+	schedule Schedule
+	// started is where the digest window begins on a database that has never digested.
+	started time.Time
 	// running keeps two passes from overlapping. A tick that would start while the
 	// previous one is still going gives way rather than queueing behind it.
 	running atomic.Bool
 }
 
+// Options is what the hub hands the evaluator at startup. Everything here is resolved
+// once: the configuration file is never re-read while the hub runs.
+type Options struct {
+	Store    Store
+	Notifier Notifier
+	Targets  []Target
+	Digest   Schedule
+	// Started is when this hub first ran, which is where the digest window begins on a
+	// database that has never digested: history is never replayed.
+	Started time.Time
+	// Now is the clock the pass reads. A tick is idempotent at a fixed instant.
+	Now func() time.Time
+}
+
 // New builds the evaluator the hub ticks.
-func New(store Store, notifier Notifier, targets []Target, now func() time.Time) *Evaluator {
-	return &Evaluator{store: store, notifier: notifier, now: now, targets: targets}
+func New(o Options) *Evaluator {
+	return &Evaluator{
+		store:    o.Store,
+		notifier: o.Notifier,
+		now:      o.Now,
+		targets:  o.Targets,
+		schedule: o.Digest,
+		started:  o.Started,
+	}
 }
 
 // Tick runs one pass against one consistent view of the data, taken at the instant it
@@ -57,7 +81,8 @@ func (e *Evaluator) Tick(ctx context.Context) error {
 		}
 	}
 
-	for _, subject := range Subjects(e.targets, snapshot, now) {
+	subjects := Subjects(e.targets, snapshot, now)
+	for _, subject := range subjects {
 		// A hub asked to stop evaluates no further subject; what it already recorded
 		// stays recorded, and the next start picks the rest up.
 		if err := ctx.Err(); err != nil {
@@ -81,7 +106,8 @@ func (e *Evaluator) Tick(ctx context.Context) error {
 		event, recorded := newest[key]
 		e.deliver(ctx, subject, event, recorded, now)
 	}
-	return nil
+	// The digest runs last, so a warning this pass recorded is in the window it closes.
+	return e.digest(ctx, subjects, now)
 }
 
 // deliver sends what the subject is owed, if anything, and records the delivery only once

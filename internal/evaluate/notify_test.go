@@ -14,10 +14,13 @@ import (
 // recorder is a channel that keeps what it was handed, and fails for the mounts it is told
 // to fail for.
 type recorder struct {
-	mu       sync.Mutex
-	messages []evaluate.Message
-	digests  [][]evaluate.Message
-	failing  map[string]bool
+	mu         sync.Mutex
+	messages   []evaluate.Message
+	digests    [][]evaluate.Message
+	digestedAt []time.Time
+	failing    map[string]bool
+	// digestFails makes the daily summary refuse, which is what leaves the window open.
+	digestFails bool
 }
 
 func (r *recorder) Notify(_ context.Context, m evaluate.Message) error {
@@ -30,11 +33,21 @@ func (r *recorder) Notify(_ context.Context, m evaluate.Message) error {
 	return nil
 }
 
-func (r *recorder) Digest(_ context.Context, _ time.Time, entries []evaluate.Message) error {
+func (r *recorder) Digest(_ context.Context, at time.Time, entries []evaluate.Message) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.digestFails {
+		return errors.New("the channel is down")
+	}
+	r.digestedAt = append(r.digestedAt, at)
 	r.digests = append(r.digests, entries)
 	return nil
+}
+
+func (r *recorder) summaries() [][]evaluate.Message {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([][]evaluate.Message(nil), r.digests...)
 }
 
 func (r *recorder) sent() []evaluate.Message {

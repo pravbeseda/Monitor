@@ -52,7 +52,14 @@ func evaluator(store evaluate.Store, at time.Time, targets ...evaluate.Target) *
 }
 
 func evaluatorWith(store evaluate.Store, channel evaluate.Notifier, at time.Time, targets ...evaluate.Target) *evaluate.Evaluator {
-	return evaluate.New(store, channel, targets, func() time.Time { return at })
+	// Started is the tick itself, so the digest of a database that has never digested is
+	// not due: these tests are about levels and messages, not about the daily summary.
+	return evaluate.New(evaluate.Options{
+		Store: store, Notifier: channel, Targets: targets,
+		Digest:  evaluate.Schedule{Hour: 9, Location: time.UTC},
+		Started: at,
+		Now:     func() time.Time { return at },
+	})
 }
 
 func pass(t *testing.T, e *evaluate.Evaluator) {

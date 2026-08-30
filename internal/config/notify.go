@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pravbeseda/monitor/internal/evaluate"
 	"github.com/pravbeseda/monitor/internal/i18n"
 )
 
@@ -26,6 +27,11 @@ const (
 type Digest struct {
 	Hour, Minute int
 	Location     *time.Location
+}
+
+// Schedule is the digest hour as evaluation reads it.
+func (d Digest) Schedule() evaluate.Schedule {
+	return evaluate.Schedule{Hour: d.Hour, Minute: d.Minute, Location: d.Location}
 }
 
 // Telegram is what the bot needs to send. It is empty unless the channel is telegram.

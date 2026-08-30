@@ -27,7 +27,7 @@ func TestASendThatNeverAnswersIsAbandoned(t *testing.T) {
 		close(channel.released)
 	})
 
-	evaluator := New(nil, channel, nil, time.Now)
+	evaluator := New(Options{Notifier: channel, Now: time.Now})
 	if err := evaluator.send(context.Background(), Message{}); err == nil {
 		t.Fatal("a channel that never answered was counted as a delivery")
 	}
