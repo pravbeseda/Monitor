@@ -365,7 +365,7 @@ makes it consistent ([hub-config.md](hub-config.md#invariants)).
 | a rule name no rule reads | startup error naming the rule: an unknown map key is not caught by the unknown-field check |
 | a resolved rule whose critical `floor`, `ratio` or `ceiling` is above the warning value for the same field | startup error naming node, volume and field |
 | `ratio` or `ceiling` under a `backup` branch | startup error: a backup rule is a floor |
-| a `ratio` without a `ceiling`, or a `ceiling` without a `ratio` | startup error naming the rule: a band needs both, and half of one would be ignored in silence |
+| a resolved rule left with a `ratio` and no `ceiling`, or the reverse | startup error naming the rule: a band needs both, and half of one would be ignored in silence. A layer may still write one half and inherit the other, the way every other field layers |
 | `role` other than `backup` | startup error naming node and mount |
 | `digest.at` not `HH:MM`, or a timezone the system's zone database does not carry | startup error naming the key |
 | `notify.locale` outside `en`, `ru`; `notify.channel` outside `log`, `telegram` | startup error naming the key |

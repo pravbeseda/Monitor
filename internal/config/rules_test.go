@@ -341,3 +341,18 @@ func TestAVolumeNoMeasurementHasCarriedStillStarts(t *testing.T) {
 		t.Fatal("a mount no volumes entry names lost the node's own rule")
 	}
 }
+
+// spec: evaluation.md#startup-validation — a layer may write one half of a band and
+// inherit the other, the way every other field layers; only a resolved rule left holding
+// half a band is refused.
+func TestALayerMayWriteOneHalfOfABand(t *testing.T) {
+	cfg := load(t, "rules:\n  disk:\n    warning: { ratio: 12 }\n"+minimal)
+	got := rule(t, cfg, "laptop-a", "disk", "/")
+
+	if got.Warning.Ratio != 12 {
+		t.Fatalf("the declared ratio resolved to %g, want 12", got.Warning.Ratio)
+	}
+	if got.Warning.Ceiling != 100e9 {
+		t.Fatalf("the ceiling resolved to %g, want the product default it inherits", got.Warning.Ceiling)
+	}
+}
