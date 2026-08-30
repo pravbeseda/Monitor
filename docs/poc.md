@@ -99,12 +99,12 @@ nodes:
 - [x] Run by hand on one laptop and one server
 
 **Stage 2 — evaluation and alerts**
-- [ ] Evaluation on its own tick ([0015](decisions/0015-evaluation-on-a-tick.md)): `rules`
+- [x] Evaluation on its own tick ([0015](decisions/0015-evaluation-on-a-tick.md)): `rules`
       in the hub's YAML, levels with the relative hysteresis of
       [0013](decisions/0013-relative-hysteresis.md), stale subjects frozen
       ([evaluation spec](specs/evaluation.md))
-- [ ] `states` and `events` tables: one event per transition, read back after a restart
-- [ ] Notifier behind an interface (log and Telegram), silence detector, the instant rule
+- [x] `states` and `events` tables: one event per transition, read back after a restart
+- [x] Notifier behind an interface (log and Telegram), silence detector, the instant rule
       of [0016](decisions/0016-leaving-critical-is-instant.md), daily digest
 
 **Stage 3 — operation**

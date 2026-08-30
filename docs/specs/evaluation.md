@@ -2,10 +2,12 @@
 
 - **Status:** approved
 - **Owns:** `internal/evaluate` (hub): the tick, thresholds, hysteresis, silence detection
-  and the notification boundary. Persistence of levels, events and the digest mark stays
-  with `internal/storage`; the `rules`, `digest`, `notify` and `volumes` keys are parsed
-  and validated by `internal/config`, which keeps owning the file, using the rule names
-  `internal/evaluate` exports.
+  and the notification boundary. The channels behind that boundary — the log line and the
+  Telegram bot — are `internal/notify`, which formats and delivers but never decides.
+  Persistence of levels, events and the digest mark stays with `internal/storage`; the
+  `rules`, `digest`, `notify` and `volumes` keys are parsed and validated by
+  `internal/config`, which keeps owning the file, using the rule names `internal/evaluate`
+  exports.
 - **Decisions:** [0001](../decisions/0001-semantic-core-and-skins.md),
   [0006](../decisions/0006-alerting-rules.md),
   [0007](../decisions/0007-public-repository.md),
