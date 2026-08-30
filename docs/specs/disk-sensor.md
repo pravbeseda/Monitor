@@ -100,7 +100,8 @@ One row = one test. Anchors: `spec: disk-sensor.md#<heading>`.
   which is the one an operator recognises. Reporting all of them would multiply every
   future alert by the number of volumes the container happens to have.
 - **An unplugged external drive** simply stops producing measurements. `removable: "true"`
-  is what lets the hub tell that from a vanished internal disk (stage 2).
+  is what lets the hub tell that from a vanished internal disk
+  ([evaluation](evaluation.md#freezing)).
 - **A mount point with spaces or non-ASCII characters** is carried verbatim; labels are
   not sanitised, because the label is what identifies the volume.
 - **Purgeable space on macOS** is counted as available, so a Mac reports what Finder
@@ -112,7 +113,7 @@ One row = one test. Anchors: `spec: disk-sensor.md#<heading>`.
 
 ## Out of scope
 
-- Thresholds, roles and health for a volume → evaluation spec (stage 2),
+- Thresholds, roles and health for a volume → [evaluation](evaluation.md),
   [0012](../decisions/0012-threshold-model.md).
 - Scheduling: when the sensor runs and how often → agent spec,
   [0010](../decisions/0010-agent-configuration.md).

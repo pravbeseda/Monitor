@@ -1,7 +1,8 @@
 # 0006. Alert on transitions; only critical is instant
 
 - **Status:** accepted; the recovery margin is superseded by
-  [0013](0013-relative-hysteresis.md), and where thresholds live is clarified by
+  [0013](0013-relative-hysteresis.md), the delivery of `critical → warning` is amended by
+  [0016](0016-leaving-critical-is-instant.md), and where thresholds live is clarified by
   [0007](0007-public-repository.md)
 - **Date:** 2026-08-28
 - **Source:** [concept](../concept.md), [POC](../poc.md)
@@ -15,7 +16,7 @@ fastest route to a bot that gets muted within a month.
 
 - Alert on a state **transition** (ok → warn, warn → crit), not on every measurement.
 - **Hysteresis**: return to ok only above `warn_below + 3` points, so a metric sitting on
-  the boundary cannot flap.
+  the boundary cannot flap (superseded by [0013](0013-relative-hysteresis.md)).
 - Only critical is delivered instantly. Warnings accumulate into a daily digest.
 - An unresolved critical repeats at most once a day.
 - Node silence is a separate alert driven by the node class `silence_after`

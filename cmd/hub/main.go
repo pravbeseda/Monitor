@@ -2,22 +2,34 @@
 package main
 
 import (
+	// A zone name in the configuration resolves only where a zone database is; linking one
+	// in keeps digest.timezone working on a host that ships none.
+	_ "time/tzdata"
+
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/pravbeseda/monitor/internal/config"
+	"github.com/pravbeseda/monitor/internal/evaluate"
 	"github.com/pravbeseda/monitor/internal/hub"
+	"github.com/pravbeseda/monitor/internal/notify"
 	"github.com/pravbeseda/monitor/internal/storage"
 	"github.com/pravbeseda/monitor/internal/version"
 )
 
 // readHeaderTimeout keeps a stalled client from holding a connection open forever.
 const readHeaderTimeout = 10 * time.Second
+
+// shutdownTimeout bounds how long a stop waits for requests in flight.
+const shutdownTimeout = 10 * time.Second
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
@@ -57,17 +69,61 @@ func run(args []string, out io.Writer) error {
 		}
 	}()
 
-	if _, err := fmt.Fprintf(out, "monitor-hub %s listening on %s (nodes: %d)\n",
-		version.Current, opts.listen, len(cfg.Nodes())); err != nil {
+	channel, err := notify.New(cfg.Notify())
+	if err != nil {
+		return err
+	}
+
+	if _, err := fmt.Fprintf(out, "monitor-hub %s listening on %s (nodes: %d, notify: %s)\n",
+		version.Current, opts.listen, len(cfg.Nodes()), cfg.Notify().Channel); err != nil {
 		return fmt.Errorf("write to stdout: %w", err)
 	}
+
+	// A signal cancels the context, which stops the evaluation pass and the server
+	// together: a change already recorded stays recorded, an in-flight send is abandoned.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
 	server := &http.Server{
 		Addr:              opts.listen,
 		Handler:           hub.Routes(cfg, store, time.Now),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
-	if err := server.ListenAndServe(); err != nil {
+	evaluating := make(chan struct{})
+	serving := make(chan struct{})
+
+	// Both goroutines write to the database that the deferred Close takes away, so
+	// whatever ends the run — a signal or a listener that never came up — cancels them
+	// first and waits: a delivery recorded after the handle went would be sent again.
+	defer func() {
+		stop()
+		<-evaluating
+		<-serving
+	}()
+
+	go func() {
+		defer close(evaluating)
+		evaluate.New(evaluate.Options{
+			Store:    store,
+			Notifier: channel,
+			Targets:  cfg.Targets(),
+			Digest:   cfg.Digest(),
+			Started:  time.Now(),
+			Now:      time.Now,
+		}).Run(ctx, evaluate.Interval)
+	}()
+	go func() {
+		defer close(serving)
+		<-ctx.Done()
+		// Shutdown closes the listeners at once and then drains what is in flight, so
+		// ListenAndServe returns long before this does.
+		closing, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if err := server.Shutdown(closing); err != nil {
+			fmt.Fprintf(os.Stderr, "hub: stop serving: %v\n", err)
+		}
+	}()
+
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("serve on %s: %w", opts.listen, err)
 	}
 	return nil

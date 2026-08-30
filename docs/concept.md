@@ -37,9 +37,10 @@ Each principle below is recorded in full, with its alternatives, in the linked A
 4. **Cross-cutting services live outside skins**: drill-down (`openMetric(id)`), time
    travel (`at=` on every State API call, which makes timelapses free), and an event stream
    of state transitions that skins subscribe to.
-5. **Notifications are rationed.** Only critical is instant; warnings accumulate into a
-   daily digest, and thresholds have hysteresis.
-   → [ADR 0006](decisions/0006-alerting-rules.md)
+5. **Notifications are rationed.** Instant delivery belongs to entering and leaving
+   critical; everything else accumulates into a daily digest, and thresholds have
+   hysteresis. → [ADR 0006](decisions/0006-alerting-rules.md),
+   [ADR 0016](decisions/0016-leaving-critical-is-instant.md)
 6. **Nothing personal enters the repository.** Code is public; schemas, thresholds, node
    names, secrets and measurements are not. → [ADR 0007](decisions/0007-public-repository.md)
 

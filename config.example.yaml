@@ -14,6 +14,22 @@ skip_mounts: ["/System/Volumes/", "/Library/Developer/CoreSimulator/"]
 sensors:
   disk: { interval: 15m }
 
+# Thresholds are a floor plus a proportional band, and a volume declared role: backup keeps
+# headroom only. See docs/specs/evaluation.md; every number here is a product default.
+rules:
+  disk:
+    warning:  { floor: 10GB, ratio: 15, ceiling: 100GB }
+    critical: { floor: 4GB,  ratio: 7,  ceiling: 40GB }
+    backup:
+      warning:  { floor: 50GB }
+      critical: { floor: 10GB }
+
+# When the daily digest goes out, in the zone the deployment names — never the host's, so
+# moving the hub cannot move the hour. The Telegram bot token and chat id are read from
+# MONITOR_TELEGRAM_TOKEN and MONITOR_TELEGRAM_CHAT_ID and never written in a file.
+digest: { at: "09:00", timezone: UTC }
+notify: { channel: log, locale: en }
+
 classes:
   laptop:
     profile: [disk]
@@ -33,3 +49,5 @@ nodes:
     token_env: MONITOR_TOKEN_SERVER_B
     sensors:
       disk: { interval: 5m }
+    volumes:
+      "/data/backup": { role: backup }

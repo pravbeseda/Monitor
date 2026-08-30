@@ -1,4 +1,6 @@
-// Package storage persists what the hub receives: measurements and node state.
+// Package storage persists what the hub receives and what it makes of it: measurements
+// and node state, the level of every subject, the log of level changes, and when the last
+// digest went out.
 package storage
 
 import (
@@ -48,7 +50,9 @@ type Value struct {
 	TS     time.Time
 }
 
-// Storage is the hub's persistence boundary (ADR 0005): SQLite behind an interface.
+// Storage is what ingest and the web page need of persistence (ADR 0005): SQLite behind an
+// interface. Evaluation declares its own, wider boundary where it consumes one, so adding
+// to that one costs these callers nothing.
 type Storage interface {
 	// SaveIngest stores one request atomically — measurements, manifest and last-seen —
 	// skipping measurements already stored under the same node, metric, labels and ts.

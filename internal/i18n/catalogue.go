@@ -14,4 +14,14 @@ var catalogue = map[string]map[Locale]string{
 	"table.collected": {English: "Collected", Russian: "Собрано"},
 	"label.removable": {English: "removable", Russian: "съёмный"},
 	"error.storage":   {English: "The panel cannot read its data right now", Russian: "Панель сейчас не может прочитать свои данные"},
+
+	"level.ok":       {English: "ok", Russian: "норма"},
+	"level.warning":  {English: "warning", Russian: "предупреждение"},
+	"level.critical": {English: "critical", Russian: "критично"},
+
+	"notify.changed":  {English: "%s: %s (was %s since %s)", Russian: "%s: %s (было %s с %s)"},
+	"notify.standing": {English: "%s: still %s since %s", Russian: "%s: по-прежнему %s с %s"},
+	"notify.readings": {English: "%s free, %s", Russian: "свободно %s, %s"},
+	"notify.silent":   {English: "no report", Russian: "нет отчётов"},
+	"digest.title":    {English: "Daily digest", Russian: "Ежедневная сводка"},
 }

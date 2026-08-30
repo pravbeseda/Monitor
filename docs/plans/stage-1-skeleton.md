@@ -1,6 +1,8 @@
 # Plan: POC Stage 1 — skeleton
 
-- **Status:** approved
+- **Status:** done; kept as a record. Its gates are the process of
+  [0009](../decisions/0009-development-process.md) before
+  [0017](../decisions/0017-one-spec-and-decision-gates.md) amended it.
 - **Source:** [poc.md](../poc.md) stage 1
 - **Specs:** [ingest.md](../specs/ingest.md) (approved)
 

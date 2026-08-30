@@ -9,7 +9,7 @@ entry point to every document in the project.
 |---|---|
 | [concept.md](concept.md) | Idea, architectural principles, planned skins, domains, roadmap |
 | [poc.md](poc.md) | POC spec: scope, terminology, wire format, work plan, answered questions |
-| [plans/stage-1-skeleton.md](plans/stage-1-skeleton.md) | Step plan for POC stage 1: scaffolding → ingest → sensor → agent loop → web page |
+| [plans/stage-1-skeleton.md](plans/stage-1-skeleton.md) | Step plan for POC stage 1, kept as a record; plans now live in the task and the pull request ([0017](decisions/0017-one-spec-and-decision-gates.md)) |
 
 ## Architecture decisions
 
@@ -32,13 +32,17 @@ One decision per file, each stating what was rejected and why. New records start
 | [0012](decisions/0012-threshold-model.md) | Disk thresholds are a floor plus a proportional band | accepted |
 | [0013](decisions/0013-relative-hysteresis.md) | Hysteresis is a relative margin, not a fixed number of points | accepted |
 | [0014](decisions/0014-macos-available-space.md) | Free space is what the system calls available; cgo in the darwin sensor only | accepted |
+| [0015](decisions/0015-evaluation-on-a-tick.md) | Evaluation runs on its own tick, never inside a request | accepted |
+| [0016](decisions/0016-leaving-critical-is-instant.md) | Leaving critical is announced as instantly as entering it | accepted |
+| [0017](decisions/0017-one-spec-and-decision-gates.md) | One document per unit of work; gates on decisions, not documents | accepted |
 
 ## Behaviour specs
 
 How subsystems behave, one file per subsystem, each built around a behaviour table that
 tests are derived from. Required for contracts, stateful algorithms and multi-session work
-(see [ADR 0009](decisions/0009-development-process.md)); new specs start from
-[TEMPLATE.md](specs/TEMPLATE.md).
+(see [ADR 0009](decisions/0009-development-process.md)); rows state only what an observer
+can see ([ADR 0017](decisions/0017-one-spec-and-decision-gates.md)). New specs start from
+[TEMPLATE.md](specs/TEMPLATE.md), and "approved" below means reviewed and in force.
 
 | Spec | Owns | Status |
 |---|---|---|
@@ -46,6 +50,7 @@ tests are derived from. Required for contracts, stateful algorithms and multi-se
 | [hub-config.md](specs/hub-config.md) | The hub's YAML file: validation, layering, per-node configuration and its version | approved |
 | [disk-sensor.md](specs/disk-sensor.md) | The disk sensor: enumeration, filtering and the label contract of its metrics | approved |
 | [agent.md](specs/agent.md) | The agent: local configuration, tick loop, delivery and configuration application | approved |
+| [evaluation.md](specs/evaluation.md) | Levels, hysteresis, the event log, silence, digests and the notifier boundary | approved |
 
 ## Design notes
 
@@ -56,13 +61,14 @@ Reasoning from working sessions, including options that were rejected.
 | [2026-08-28](log/2026-08-28-concept.md) | Project start: visual concepts, architecture, naming |
 | [2026-08-29](log/2026-08-29-stage-1-decisions.md) | Stage 1: locale negotiation, one wire package, what the live run caught |
 | [2026-08-29](log/2026-08-29-munin-hub-plugin.md) | Proposal: a munin plugin on the hub host for off-the-shelf history graphs |
+| [2026-08-29](log/2026-08-29-stage-2-decisions.md) | Stage 2: what the evaluation design rejected, and what three review rounds changed |
 
 ## Not written yet
 
 - `docs/architecture/` — subsystem documents arrive with the code. Until then the
   architecture fits in [concept.md](concept.md), the ADRs and the specs, and duplicating it
   would create a second source of truth.
-- Install and deployment guide — after POC stage 1.
+- Install and deployment guide — with POC stage 3, where the units and the nginx vhost land.
 
 ## Where a new open question goes
 

@@ -1,6 +1,8 @@
 # 0009. Specs for behaviour, plans for work, ADRs for decisions
 
-- **Status:** accepted
+- **Status:** accepted; the stages and gates are amended by
+  [0017](0017-one-spec-and-decision-gates.md), which keeps the purpose and drops the plan
+  document
 - **Date:** 2026-08-28
 
 ## Context

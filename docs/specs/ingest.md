@@ -162,8 +162,8 @@ One row = one test. Anchors: `spec: ingest.md#<heading>`.
 
 ## Out of scope
 
-- Threshold evaluation, health states, hysteresis → evaluation spec (stage 2).
-- Silence detection beyond recording last-seen → evaluation spec (stage 2).
+- Threshold evaluation, health states, hysteresis → [evaluation](evaluation.md).
+- Silence detection beyond recording last-seen → [evaluation](evaluation.md#node-silence).
 - Agent-side scheduling, retry and buffering policy → agent spec.
 - How sensors collect and label measurements (removable flag, mount discovery) → disk
   sensor spec.
