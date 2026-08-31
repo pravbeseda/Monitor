@@ -7,12 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pravbeseda/monitor/internal/evaluate"
 	"github.com/pravbeseda/monitor/internal/storage"
 )
-
-// staleFactor turns an expected interval into the distance at which two points straddle a
-// hole. It is evaluation's own factor: one definition of "this node was not reporting".
-const staleFactor = 3
 
 // Query is one history request: which series, over which window.
 type Query struct {
@@ -76,9 +73,10 @@ func UnitOf(metric string) Unit {
 	}
 }
 
-// Gap reports whether two consecutive points straddle a hole: more than three intervals
-// apart, the age at which evaluation stops trusting a value. A series with no interval has
-// no gaps, because nothing says how often it should have reported.
+// Gap reports whether two consecutive points straddle a hole: further apart than the age at
+// which evaluation stops trusting a value, and reading that factor from evaluation rather
+// than restating it. A series with no interval has no gaps, because nothing says how often
+// it should have reported.
 func Gap(interval time.Duration, earlier, later time.Time) bool {
-	return interval > 0 && later.Sub(earlier) > staleFactor*interval
+	return interval > 0 && later.Sub(earlier) > evaluate.StaleFactor*interval
 }
