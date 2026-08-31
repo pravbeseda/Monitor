@@ -9,6 +9,7 @@ entry point to every document in the project.
 |---|---|
 | [concept.md](concept.md) | Idea, architectural principles, planned skins, domains, roadmap |
 | [poc.md](poc.md) | POC spec: scope, terminology, wire format, work plan, answered questions |
+| [install.md](install.md) | Install guide: build, set up the hub host, install and verify a node, upgrade, uninstall |
 | [plans/stage-1-skeleton.md](plans/stage-1-skeleton.md) | Step plan for POC stage 1, kept as a record; plans now live in the task and the pull request ([0017](decisions/0017-one-spec-and-decision-gates.md)) |
 
 ## Architecture decisions
@@ -73,7 +74,6 @@ Reasoning from working sessions, including options that were rejected.
 - `docs/architecture/` — subsystem documents arrive with the code. Until then the
   architecture fits in [concept.md](concept.md), the ADRs and the specs, and duplicating it
   would create a second source of truth.
-- Install and deployment guide — with POC stage 3, where the units and the nginx vhost land.
 
 ## Where a new open question goes
 

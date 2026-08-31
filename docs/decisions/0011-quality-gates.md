@@ -13,7 +13,7 @@ mandatory, not a matter of reviewer diligence.
 
 ## Decision
 
-Four checks gate every change. **CI runs all four and a red one blocks the merge**; the
+Five checks gate every change. **CI runs all five and a red one blocks the merge**; the
 pre-commit hook runs the fast pair (`gofmt`, `go vet`) so the local loop stays quick:
 
 | Check | Where | Catches |
@@ -22,6 +22,7 @@ pre-commit hook runs the fast pair (`gofmt`, `go vet`) so the local loop stays q
 | `go vet` | hook + CI | constructs that compile and misbehave |
 | `golangci-lint` | CI | `errcheck`, `staticcheck`, `ineffassign`, `gocritic`, `revive` |
 | `go test -race -cover` | CI | failing tests and data races in the agent's concurrent collection |
+| `shellcheck -s sh` | CI | the install script, read as the POSIX shell its shebang claims |
 
 The guarantee belongs at the boundary of `main`, not at the boundary of a local commit: a
 branch may hold broken work, a merge may not. A hook slow enough to invite `--no-verify` is
