@@ -21,8 +21,14 @@ source_dir=$(dirname "$0")
 # names this list; it neither continues nor rolls back (deployment.md#invariants).
 written=
 
+# The temporary of the write in flight. A run that dies between creating it and the rename
+# would otherwise leave it behind under a name nothing reclaims, and a write_env_file
+# temporary holds the token.
+temp=
+
 on_exit() {
 	status=$?
+	[ -z "$temp" ] || rm -f "$temp"
 	if [ "$status" -ne 0 ] && [ -n "$written" ]; then
 		printf '%s: stopped after writing:\n%s' "$program" "$written" >&2
 	fi
@@ -49,14 +55,20 @@ refuse() {
 	exit 1
 }
 
+newline='
+'
+carriage_return=$(printf '\r')
+
 # Blanks around a line, around a key and around a value are what systemd's EnvironmentFile
-# and the agent's own parser both ignore, so this reader ignores them too.
+# and the agent's own parser both ignore, so this reader ignores them too. A carriage return
+# counts as one: the agent ends a line at a lone \r (ADR 0020), so a file saved with CRLF
+# line endings holds the same values to it, and must to this reader as well.
 trim() {
 	trimmed=$1
 	while :; do
 		case $trimmed in
-		" "* | "	"*) trimmed=${trimmed#?} ;;
-		*" " | *"	") trimmed=${trimmed%?} ;;
+		" "* | "	"* | "$carriage_return"*) trimmed=${trimmed#?} ;;
+		*" " | *"	" | *"$carriage_return") trimmed=${trimmed%?} ;;
 		*) return 0 ;;
 		esac
 	done
@@ -275,28 +287,36 @@ fi
 [ -n "$token" ] || refuse "no token: set MONITOR_TOKEN or pipe the token in on stdin"
 
 # A value the agent's parser cannot read back as itself is refused here, before anything is
-# written. Each message names no value: one of them is the token.
-newline='
-'
-carriage_return=$(printf '\r')
+# written. The messages name no value: one of them is the token.
 for checked in "$hub" "$node" "$token"; do
 	# The environment file is one KEY=VALUE per line, and a lone carriage return ends a line
-	# for the agent too (ADR 0020), so either one would write a second line the agent reads
-	# as configuration — a hub URL the operator never passed, on a node that reports there
+	# for the agent too (ADR 0020), so either one would write a second line the agent reads as
+	# configuration — a hub URL the operator never passed, on a node that reports there
 	# silently.
 	case $checked in
 	*"$newline"* | *"$carriage_return"*)
 		refuse "a value contains a line break, and the environment file is one KEY=VALUE per line"
 		;;
 	esac
-	# A value that opens with a quote and never closes it makes the agent refuse the whole
-	# file, so the install would succeed on a node that never starts again.
-	case $checked in
+	# A quote that never closes is not read back differently — it makes the agent refuse the
+	# whole file, so the install would report success on a node that never starts again. The
+	# blanks come off first: the agent trims before it looks for the quote, and a quote hiding
+	# behind a space walked through the check that did not.
+	trim "$checked"
+	case $trimmed in
 	"'"*"'" | '"'*'"') ;;
 	"'"* | '"'*)
-		refuse "a value opens with a quote it does not close, which the agent's parser refuses"
+		refuse "a value opens with a quote it does not close, which makes the agent refuse the whole file"
 		;;
 	esac
+	# Everything else the agent does to a value on the way back — trimming the blanks around
+	# it, stripping one pair of quotes — this file writes verbatim. Where that round trip is
+	# not the identity the node would run with a value nobody typed, and a quote that never
+	# closes makes the agent refuse the whole file, leaving an install that reports success on
+	# a node that never starts again.
+	if ! env_line "MONITOR_VALUE=$checked" || [ "$value" != "$checked" ]; then
+		refuse "a value the agent would read back as something else: it is padded with blanks, or quoted"
+	fi
 done
 
 install_file "$binary" 0755 "$destdir$binary_file"

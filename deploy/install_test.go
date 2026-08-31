@@ -472,6 +472,24 @@ func TestARerunReadsAnIndentedLineAsThatKey(t *testing.T) {
 	assertEnv(t, destDir, "https://other.example.com", testNode, testToken)
 }
 
+// spec: deployment.md#re-running — a file saved with CRLF line endings holds the same values
+// to the agent, which ends a line at a lone carriage return (ADR 0020), so a token-less
+// re-run against one keeps the stored token rather than refusing over a value nobody passed.
+func TestARerunReadsAFileWithCRLFLineEndings(t *testing.T) {
+	destDir, binary := t.TempDir(), agentBinary(t)
+	install(t, destDir, binary, exampleHub, testNode, testToken)
+
+	envFile := filepath.Join(destDir, hostLayout().env.path)
+	body := read(t, envFile)
+	if err := os.WriteFile(envFile, []byte(strings.ReplaceAll(body, "\n", "\r\n")), 0o600); err != nil {
+		t.Fatalf("edit the environment file: %v", err)
+	}
+
+	install(t, destDir, binary, exampleHub, testNode, "")
+
+	assertEnv(t, destDir, exampleHub, testNode, testToken)
+}
+
 // spec: deployment.md#refusing — every refusal is decided before the first file is written,
 // so a rejected run leaves the node exactly as it was.
 //
@@ -576,6 +594,30 @@ func TestARefusalNamesItsCauseAndWritesNothing(t *testing.T) {
 			names: "quote",
 		},
 		{
+			// The agent trims the blanks before it looks for the closing quote, so a quote
+			// standing behind a space is the same unreadable file as the row above.
+			name:  "a value whose unclosed quote hides behind a blank",
+			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", " 'server-b"},
+			stdin: testToken,
+			names: "quote",
+		},
+		{
+			// Written verbatim, read back trimmed: the node would run under a name nobody
+			// typed, which is worse than being told to type it again.
+			name:  "a value padded with blanks",
+			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", " server-b "},
+			stdin: testToken,
+			names: "read back as something else",
+		},
+		{
+			// The same, for the quoting the file format itself does: the agent strips one
+			// matching pair, so the value installed is not the value passed.
+			name:  "a value in matching quotes",
+			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", `"server-b"`},
+			stdin: testToken,
+			names: "read back as something else",
+		},
+		{
 			name:  "an unknown flag",
 			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", testNode, "--token", testToken},
 			stdin: "",
@@ -620,17 +662,6 @@ func TestARealInstallRefusesForAUserThatIsNotRoot(t *testing.T) {
 		t.Errorf("the refusal does not say to re-run under sudo; it said:\n%s%s", stdout, stderr)
 	}
 	assertNoToken(t, stdout, stderr)
-}
-
-// spec: deployment.md#refusing — the value-format refusal is about a quote a value never
-// closes, and a value that closes it is not one: the agent strips one matching pair and
-// reads what stands inside it (ADR 0020).
-func TestAQuotedValueIsInstalledAsWhatItQuotes(t *testing.T) {
-	destDir := t.TempDir()
-	install(t, destDir, agentBinary(t), exampleHub, `"server-b"`, testToken)
-
-	assertEnv(t, destDir, exampleHub, "server-b", testToken)
-	assertLayout(t, destDir)
 }
 
 // spec: deployment.md#staged-installs — no service is registered, started or restarted. The
