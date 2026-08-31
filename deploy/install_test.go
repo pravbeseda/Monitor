@@ -786,7 +786,7 @@ func TestAStagedRunCallsNoServiceCommand(t *testing.T) {
 // are genuinely absent rather than merely unused.
 func TestAStagedRunNeedsNoInitSystemOnPath(t *testing.T) {
 	pathDir := t.TempDir()
-	for _, tool := range []string{"basename", "dirname", "mkdir", "rm", "cp", "chmod", "mv", "uname", "id", "mktemp", "cat", "find"} {
+	for _, tool := range []string{"basename", "dirname", "mkdir", "rm", "cp", "chmod", "mv", "uname", "id", "mktemp", "cat"} {
 		found, err := exec.LookPath(tool)
 		if err != nil {
 			t.Fatalf("find %s: %v", tool, err)
