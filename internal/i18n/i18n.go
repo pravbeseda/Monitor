@@ -19,20 +19,21 @@ const (
 // ignored rather than honoured — a broken link should not cost the reader the language
 // the browser already asked for.
 func Negotiate(query, acceptLanguage string) Locale {
-	if locale, ok := match(query); ok {
+	if locale, ok := Match(query); ok {
 		return locale
 	}
 	for _, part := range strings.Split(acceptLanguage, ",") {
 		tag, _, _ := strings.Cut(strings.TrimSpace(part), ";")
-		if locale, ok := match(tag); ok {
+		if locale, ok := Match(tag); ok {
 			return locale
 		}
 	}
 	return English
 }
 
-// match accepts a regional tag too: ru-BY is Russian.
-func match(tag string) (Locale, bool) {
+// Match accepts a regional tag too: ru-BY is Russian. It is what turns a browser's tag
+// into a locale a link can carry on.
+func Match(tag string) (Locale, bool) {
 	language, _, _ := strings.Cut(tag, "-")
 	return Parse(language)
 }

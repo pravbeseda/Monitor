@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="{{ .Locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ .Title }}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 60rem; }
+    h1 { font-size: 1.4rem; }
+    p.meta { color: #666; margin-top: 0; font-size: 0.9rem; }
+    nav { margin: 0 0 1rem; font-size: 0.9rem; }
+    nav a { margin-right: 0.6rem; }
+    svg { width: 100%; height: auto; }
+    .axis { stroke: #bbb; stroke-width: 1; }
+    .grid { stroke: #eee; stroke-width: 1; }
+    .line { fill: none; stroke: #2a6; stroke-width: 2; }
+    .dot { fill: #2a6; }
+    text { font-size: 11px; fill: #555; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <nav><a href="/">{{ .Index }}</a></nav>
+  <h1>{{ if .Heading }}{{ .Heading }}{{ else }}{{ .Title }}{{ end }}</h1>
+  {{ if .Latest }}<p class="meta">{{ .LatestLabel }}: {{ .Latest }}</p>{{ end }}
+  {{ if .Windows }}
+    <nav>
+      {{ .WindowLabel }}:
+      {{ range .Windows }}
+        {{ if .Current }}<strong>{{ .Label }}</strong>{{ else }}<a href="{{ .URL }}">{{ .Label }}</a>{{ end }}
+      {{ end }}
+    </nav>
+  {{ end }}
+  {{ if .Message }}<p>{{ .Message }}</p>{{ end }}
+  {{ with .Chart }}
+    <svg viewBox="0 0 {{ .Width }} {{ .Height }}" role="img">
+      {{ $c := . }}
+      {{ range .YTicks }}
+        <line class="grid" x1="{{ $c.Left }}" y1="{{ .At }}" x2="{{ $c.RightEdge }}" y2="{{ .At }}"></line>
+        <text x="{{ $c.Left }}" y="{{ .LabelAt }}" dx="-8" text-anchor="end">{{ .Label }}</text>
+      {{ end }}
+      {{ range .XTicks }}
+        <text x="{{ .At }}" y="{{ .LabelAt }}" text-anchor="middle">{{ .Label }}</text>
+      {{ end }}
+      <line class="axis" x1="{{ .Left }}" y1="{{ .Top }}" x2="{{ .Left }}" y2="{{ .Baseline }}"></line>
+      <line class="axis" x1="{{ .Left }}" y1="{{ .Baseline }}" x2="{{ .RightEdge }}" y2="{{ .Baseline }}"></line>
+      {{ range .Lines }}<polyline class="line" points="{{ . }}"></polyline>{{ end }}
+      {{ range .Dots }}<circle class="dot" cx="{{ .X }}" cy="{{ .Y }}" r="3"></circle>{{ end }}
+    </svg>
+  {{ end }}
+  {{ if .Series }}
+    <ul>
+      {{ range .Series }}<li><a href="{{ .URL }}">{{ .Label }}</a></li>{{ end }}
+    </ul>
+  {{ end }}
+</body>
+</html>

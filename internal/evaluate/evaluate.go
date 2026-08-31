@@ -49,3 +49,15 @@ func Lookup(name string) (Definition, bool) {
 	found, ok := definitions[name]
 	return found, ok
 }
+
+// SensorOf names the sensor a metric comes from, so a reader outside evaluation can age a
+// series by the interval its subjects age by (docs/specs/history.md#gaps). It reports
+// false for a metric no rule declares.
+func SensorOf(metric string) (string, bool) {
+	for _, definition := range definitions {
+		if definition.Free == metric || definition.Pct == metric {
+			return definition.Sensor, true
+		}
+	}
+	return "", false
+}

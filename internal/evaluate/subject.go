@@ -13,9 +13,11 @@ import (
 // input is hub receipt time, which is always fresh.
 const SilenceRule = "silence"
 
-// staleFactor turns a sensor's interval into the age at which its values stop being
-// evidence: three collections missed is no longer a hiccup.
-const staleFactor = 3
+// StaleFactor turns a sensor's interval into the age at which its values stop being
+// evidence: three collections missed is no longer a hiccup. It is exported because a
+// history chart breaks its line at the same age (docs/specs/history.md#gaps), and two
+// copies of the number would let the two drift apart.
+const StaleFactor = 3
 
 // Target is one configured node as evaluation reads it. The hub resolves the layers of
 // ADR 0010 and hands over what a tick needs; none of it ever reaches an agent.
@@ -132,7 +134,7 @@ func volumeSubjects(target Target, node storage.NodeState, silent bool, stored m
 			subject := Subject{
 				Subject:  storage.Subject{Node: target.Node, Rule: name, Labels: joined.labels},
 				Readings: map[string]float64{definition.Free: joined.free, definition.Pct: joined.pct},
-				Frozen:   silent || now.Sub(joined.oldest) > staleFactor*interval,
+				Frozen:   silent || now.Sub(joined.oldest) > StaleFactor*interval,
 			}
 			restore(&subject, stored, now)
 			subject.Level = subject.Previous

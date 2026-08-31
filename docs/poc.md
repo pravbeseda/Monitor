@@ -40,6 +40,7 @@ The reasoning and the rejected alternatives are in the ADRs; the POC only applie
 - [0014](decisions/0014-macos-available-space.md) — what "free space" means
 - [0015](decisions/0015-evaluation-on-a-tick.md) — evaluation runs on its own tick
 - [0016](decisions/0016-leaving-critical-is-instant.md) — leaving critical is instant
+- [0018](decisions/0018-history-through-the-api.md) — history is served by the API, not by a second tool
 
 ## Wire format
 
@@ -109,10 +110,14 @@ nodes:
 
 **Stage 3 — operation**
 - [ ] systemd and launchd units, agent install script
-- [ ] nginx vhost for the hub, per-node tokens, authentication on the web page
-- [ ] Decide how history graphs are served, before any charting is built by hand:
-      the [munin hub-plugin proposal](log/2026-08-29-munin-hub-plugin.md) against
-      charts of our own in the web page
+- [ ] nginx vhost for the hub, per-node tokens, authentication on the web page and a
+      credential a program can send to the read endpoints
+- [x] Decide how history graphs are served, before any charting is built by hand:
+      the hub serves the series and a renderer consumes them
+      ([0018](decisions/0018-history-through-the-api.md)), against the
+      [munin hub-plugin proposal](log/2026-08-29-munin-hub-plugin.md)
+- [x] `/api/v1/series`, `/api/v1/history` and the drill-down page
+      ([history spec](specs/history.md))
 - [ ] Roll out to every node, observe for a week, tune thresholds
 
 **Done when**: filling a disk on a test node produces a Telegram alert within one interval,

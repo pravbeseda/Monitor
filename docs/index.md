@@ -35,6 +35,7 @@ One decision per file, each stating what was rejected and why. New records start
 | [0015](decisions/0015-evaluation-on-a-tick.md) | Evaluation runs on its own tick, never inside a request | accepted |
 | [0016](decisions/0016-leaving-critical-is-instant.md) | Leaving critical is announced as instantly as entering it | accepted |
 | [0017](decisions/0017-one-spec-and-decision-gates.md) | One document per unit of work; gates on decisions, not documents | accepted |
+| [0018](decisions/0018-history-through-the-api.md) | History is served by the hub's API; a chart is one of its consumers | accepted |
 
 ## Behaviour specs
 
@@ -51,6 +52,7 @@ can see ([ADR 0017](decisions/0017-one-spec-and-decision-gates.md)). New specs s
 | [disk-sensor.md](specs/disk-sensor.md) | The disk sensor: enumeration, filtering and the label contract of its metrics | approved |
 | [agent.md](specs/agent.md) | The agent: local configuration, tick loop, delivery and configuration application | approved |
 | [evaluation.md](specs/evaluation.md) | Levels, hysteresis, the event log, silence, digests and the notifier boundary | approved |
+| [history.md](specs/history.md) | The history series, `/api/v1/series`, `/api/v1/history` and the drill-down page | approved |
 
 ## Design notes
 

@@ -1,7 +1,8 @@
 # Munin plugin on the hub host — proposal
 
-*Status: proposal, not reviewed. The decision point is in the [POC plan](../poc.md),
-stage 3: decide before any charting is built by hand.*
+*Status: rejected by [ADR 0018](../decisions/0018-history-through-the-api.md), which serves
+history from the hub's own API instead. Kept for what it weighed and what it rejected on the
+way.*
 
 ## Proposal
 

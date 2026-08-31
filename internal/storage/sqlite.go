@@ -68,6 +68,10 @@ var migrations = []string{
 		key   TEXT PRIMARY KEY,
 		value TEXT NOT NULL
 	) WITHOUT ROWID;`,
+
+	// History selects by metric across every node, which the primary key cannot serve:
+	// its leading column is the node (docs/specs/history.md#selection).
+	`CREATE INDEX IF NOT EXISTS measurements_series ON measurements (metric, node, labels, ts);`,
 }
 
 // querier is what a database handle and a transaction both offer, so one read runs either

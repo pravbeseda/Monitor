@@ -16,5 +16,10 @@ func Routes(cfg *config.Config, store storage.Storage, now func() time.Time) *ht
 	mux := http.NewServeMux()
 	mux.Handle("POST /api/v1/ingest", ingest.NewHandler(cfg, store, now))
 	mux.Handle("GET /{$}", Page(store))
+
+	read := reader(cfg, store, now)
+	mux.Handle("GET /api/v1/series", SeriesAPI(read))
+	mux.Handle("GET /api/v1/history", HistoryAPI(read))
+	mux.Handle("GET /history", HistoryPage(read))
 	return mux
 }

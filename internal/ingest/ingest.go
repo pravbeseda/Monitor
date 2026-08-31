@@ -11,7 +11,6 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -24,8 +23,6 @@ const (
 	maxBodyBytes      = 1 << 20 // 1 MiB
 	requestsPerMinute = 60
 )
-
-var metricID = regexp.MustCompile(`^[a-z0-9_.]+$`)
 
 // Handler validates shape, not meaning: whether a value crosses a threshold is the
 // evaluation engine's business.
@@ -164,7 +161,7 @@ func validate(req api.Request, received time.Time) (storage.Ingest, error) {
 }
 
 func validateMeasurement(m api.Measurement, sent time.Time) (storage.Measurement, error) {
-	if !metricID.MatchString(m.Metric) {
+	if !api.MetricID.MatchString(m.Metric) {
 		return storage.Measurement{}, fmt.Errorf("metric %q is not an id of [a-z0-9_.]", m.Metric)
 	}
 	if m.Value == nil || math.IsNaN(*m.Value) || math.IsInf(*m.Value, 0) {

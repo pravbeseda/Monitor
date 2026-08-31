@@ -34,3 +34,13 @@ func TestNamesListsTheImplementedRules(t *testing.T) {
 		t.Fatalf("Names() = %v, want [disk]", names)
 	}
 }
+
+// spec: history.md#gaps — a series ages by the interval of the sensor its metric comes from.
+func TestSensorOfNamesTheSensorBehindAMetric(t *testing.T) {
+	if sensor, known := evaluate.SensorOf("disk.free_pct"); !known || sensor != "disk" {
+		t.Errorf("SensorOf(disk.free_pct) = %q, %v, want the disk sensor", sensor, known)
+	}
+	if _, known := evaluate.SensorOf("battery.charge_pct"); known {
+		t.Error("SensorOf(battery.charge_pct) claims a sensor, want none: no rule declares it")
+	}
+}
