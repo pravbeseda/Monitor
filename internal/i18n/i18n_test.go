@@ -113,8 +113,9 @@ func TestParse(t *testing.T) {
 	}
 }
 
-// A locale the catalogue does not know reaches a printer through configuration or a stale
-// link; it renders English rather than failing at the one call that has no English path.
+// Nothing reaches a printer with an unknown locale today: configuration and Negotiate both
+// refuse one. The invariant is held anyway because a locale passed straight to a channel
+// would panic inside that channel's own goroutine, which costs the hub, not one message.
 func TestPrinterFallsBackToEnglish(t *testing.T) {
 	p := i18n.For(i18n.Locale("de"))
 	if got := p.Locale(); got != i18n.English {
