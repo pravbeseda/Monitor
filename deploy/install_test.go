@@ -20,9 +20,9 @@ import (
 
 const script = "./install-agent.sh"
 
-// Synthetic throughout (ADR 0007): no run here names a real host, node or token.
+// Synthetic throughout (ADR 0007): no run here names a real node or token. The only URL any
+// file in this directory may carry is exampleHub, from deploy_test.go.
 const (
-	testHub   = "https://hub.example.com"
 	testNode  = "laptop-a"
 	testToken = "token-aaaa"
 )
@@ -235,18 +235,15 @@ func TestAFreshInstallWritesTheLayoutTheSpecFixes(t *testing.T) {
 			destDir, binary := t.TempDir(), agentBinary(t)
 			stdout, stderr := run{
 				destDir: destDir,
-				args:    []string{"--binary", binary, "--hub", testHub, "--node", testNode},
+				args:    []string{"--binary", binary, "--hub", exampleHub, "--node", testNode},
 				stdin:   tc.stdin,
 				token:   tc.token,
 			}.mustRun(t)
 
 			assertLayout(t, destDir)
-			assertEnv(t, destDir, testHub, testNode, testToken)
+			assertEnv(t, destDir, exampleHub, testNode, testToken)
 
-			shipped, err := os.ReadFile(binary)
-			if err != nil {
-				t.Fatalf("read the source binary: %v", err)
-			}
+			shipped := []byte(read(t, binary))
 			if installed := tree(t, destDir)[hostLayout().binary.path]; !bytes.Equal(installed, shipped) {
 				t.Errorf("the installed binary differs from the one --binary named")
 			}
@@ -270,7 +267,7 @@ func assertNoToken(t *testing.T, streams ...string) {
 // wrote and the command that shows the service's state.
 func TestASuccessfulRunPrintsWhatItWroteAndHowToSeeTheService(t *testing.T) {
 	destDir := t.TempDir()
-	stdout, _ := install(t, destDir, agentBinary(t), testHub, testNode, testToken)
+	stdout, _ := install(t, destDir, agentBinary(t), exampleHub, testNode, testToken)
 
 	for _, file := range hostLayout().files() {
 		if !strings.Contains(stdout, filepath.Join(destDir, file.path)) {
@@ -292,10 +289,10 @@ func TestASuccessfulRunPrintsWhatItWroteAndHowToSeeTheService(t *testing.T) {
 // timestamp would show changing.
 func TestASecondRunWithTheSameInputsChangesNothing(t *testing.T) {
 	destDir, binary := t.TempDir(), agentBinary(t)
-	install(t, destDir, binary, testHub, testNode, testToken)
+	install(t, destDir, binary, exampleHub, testNode, testToken)
 	before := tree(t, destDir)
 
-	install(t, destDir, binary, testHub, testNode, testToken)
+	install(t, destDir, binary, exampleHub, testNode, testToken)
 
 	after := tree(t, destDir)
 	if len(before) != len(after) {
@@ -314,18 +311,15 @@ func TestASecondRunWithTheSameInputsChangesNothing(t *testing.T) {
 // (deployment.md#staged-installs).
 func TestARerunReplacesTheBinary(t *testing.T) {
 	destDir := t.TempDir()
-	install(t, destDir, agentBinary(t), testHub, testNode, testToken)
+	install(t, destDir, agentBinary(t), exampleHub, testNode, testToken)
 
 	newer := filepath.Join(t.TempDir(), "monitor-agent")
 	if err := os.WriteFile(newer, []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
 		t.Fatalf("write the newer binary: %v", err)
 	}
-	install(t, destDir, newer, testHub, testNode, testToken)
+	install(t, destDir, newer, exampleHub, testNode, testToken)
 
-	want, err := os.ReadFile(newer)
-	if err != nil {
-		t.Fatalf("read the newer binary: %v", err)
-	}
+	want := []byte(read(t, newer))
 	if got := tree(t, destDir)[hostLayout().binary.path]; !bytes.Equal(got, want) {
 		t.Errorf("the re-run did not replace the installed binary")
 	}
@@ -336,7 +330,7 @@ func TestARerunReplacesTheBinary(t *testing.T) {
 // value into the environment file.
 func TestARerunWritesADifferentHubOrNodeThrough(t *testing.T) {
 	destDir, binary := t.TempDir(), agentBinary(t)
-	install(t, destDir, binary, testHub, testNode, testToken)
+	install(t, destDir, binary, exampleHub, testNode, testToken)
 
 	install(t, destDir, binary, "https://other.example.com", "server-b", testToken)
 
@@ -348,11 +342,11 @@ func TestARerunWritesADifferentHubOrNodeThrough(t *testing.T) {
 // the file stays readable by its owner only.
 func TestARerunReplacesTheStoredToken(t *testing.T) {
 	destDir, binary := t.TempDir(), agentBinary(t)
-	install(t, destDir, binary, testHub, testNode, testToken)
+	install(t, destDir, binary, exampleHub, testNode, testToken)
 
-	install(t, destDir, binary, testHub, testNode, "token-bbbb")
+	install(t, destDir, binary, exampleHub, testNode, "token-bbbb")
 
-	assertEnv(t, destDir, testHub, testNode, "token-bbbb")
+	assertEnv(t, destDir, exampleHub, testNode, "token-bbbb")
 	env := string(tree(t, destDir)[hostLayout().env.path])
 	if strings.Contains(env, testToken) {
 		t.Errorf("the environment file still carries the replaced token")
@@ -365,25 +359,88 @@ func TestARerunReplacesTheStoredToken(t *testing.T) {
 // upgrade (deployment.md#edge-cases).
 func TestARerunWithoutATokenKeepsTheStoredOne(t *testing.T) {
 	destDir, binary := t.TempDir(), agentBinary(t)
-	install(t, destDir, binary, testHub, testNode, testToken)
+	install(t, destDir, binary, exampleHub, testNode, testToken)
 
-	install(t, destDir, binary, testHub, "server-b", "")
+	install(t, destDir, binary, exampleHub, "server-b", "")
 
-	assertEnv(t, destDir, testHub, "server-b", testToken)
+	assertEnv(t, destDir, exampleHub, "server-b", testToken)
 	assertLayout(t, destDir)
+}
+
+// handSpeltToken is every spelling of the MONITOR_TOKEN line the agent's parser reads as the
+// token: it trims the blanks around a key and around a value and strips one matching pair of
+// surrounding quotes (ADR 0020). A line the agent reads as the token is a line the script
+// has to read as the token too.
+var handSpeltToken = []string{
+	"MONITOR_TOKEN = " + testToken,
+	`MONITOR_TOKEN="` + testToken + `"`,
+	"  MONITOR_TOKEN  =  '" + testToken + "'  ",
+}
+
+// respellToken rewrites the installed MONITOR_TOKEN line the way an operator spelt it by
+// hand, and refuses to go on unless the agent still reads that line as the token.
+func respellToken(t *testing.T, destDir, line string) {
+	t.Helper()
+	envFile := filepath.Join(destDir, hostLayout().env.path)
+	body := regexp.MustCompile(`(?m)^MONITOR_TOKEN=.*$`).ReplaceAllLiteralString(read(t, envFile), line)
+	if err := os.WriteFile(envFile, []byte(body), 0o600); err != nil {
+		t.Fatalf("edit the environment file: %v", err)
+	}
+	values, err := agent.ReadEnvFile(envFile)
+	if err != nil || values["MONITOR_TOKEN"] != testToken {
+		t.Fatalf("the agent does not read %q as the token: %q, %v", line, values["MONITOR_TOKEN"], err)
+	}
+}
+
+// spec: deployment.md#re-running — a run with no token available keeps the stored one,
+// whichever way that line is spelt: a token the agent works from and the script cannot see
+// is a refused upgrade on a node that was running fine.
+func TestARerunKeepsAStoredTokenHoweverItIsSpelt(t *testing.T) {
+	for _, spelling := range handSpeltToken {
+		t.Run(spelling, func(t *testing.T) {
+			destDir, binary := t.TempDir(), agentBinary(t)
+			install(t, destDir, binary, exampleHub, testNode, testToken)
+			respellToken(t, destDir, spelling)
+
+			install(t, destDir, binary, exampleHub, "server-b", "")
+
+			assertEnv(t, destDir, exampleHub, "server-b", testToken)
+			assertLayout(t, destDir)
+		})
+	}
+}
+
+// spec: deployment.md#re-running — and a rotation rewrites that line in place, whichever way
+// it is spelt: appending a second MONITOR_TOKEN would leave the revoked one on disk.
+func TestARotationRewritesAStoredTokenHoweverItIsSpelt(t *testing.T) {
+	for _, spelling := range handSpeltToken {
+		t.Run(spelling, func(t *testing.T) {
+			destDir, binary := t.TempDir(), agentBinary(t)
+			install(t, destDir, binary, exampleHub, testNode, testToken)
+			respellToken(t, destDir, spelling)
+
+			install(t, destDir, binary, exampleHub, testNode, "token-bbbb")
+
+			assertEnv(t, destDir, exampleHub, testNode, "token-bbbb")
+			env := string(tree(t, destDir)[hostLayout().env.path])
+			if strings.Contains(env, testToken) {
+				t.Errorf("the environment file still carries the revoked token:\n%s", env)
+			}
+			if count := strings.Count(env, "MONITOR_TOKEN"); count != 1 {
+				t.Errorf("the environment file has %d MONITOR_TOKEN lines, want 1:\n%s", count, env)
+			}
+		})
+	}
 }
 
 // spec: deployment.md#edge-cases — the environment file edited by hand is supported: the run
 // rewrites MONITOR_HUB and MONITOR_NODE and leaves every other line alone.
 func TestARerunLeavesLinesItDoesNotOwnAlone(t *testing.T) {
 	destDir, binary := t.TempDir(), agentBinary(t)
-	install(t, destDir, binary, testHub, testNode, testToken)
+	install(t, destDir, binary, exampleHub, testNode, testToken)
 
 	envFile := filepath.Join(destDir, hostLayout().env.path)
-	body, err := os.ReadFile(envFile)
-	if err != nil {
-		t.Fatalf("read the environment file: %v", err)
-	}
+	body := []byte(read(t, envFile))
 	if err := os.WriteFile(envFile, append([]byte("# hand-written note\n"), body...), 0o600); err != nil {
 		t.Fatalf("edit the environment file: %v", err)
 	}
@@ -402,14 +459,10 @@ func TestARerunLeavesLinesItDoesNotOwnAlone(t *testing.T) {
 // behind one is a stored token rather than a node that refuses its next upgrade.
 func TestARerunReadsAnIndentedLineAsThatKey(t *testing.T) {
 	destDir, binary := t.TempDir(), agentBinary(t)
-	install(t, destDir, binary, testHub, testNode, testToken)
+	install(t, destDir, binary, exampleHub, testNode, testToken)
 
 	envFile := filepath.Join(destDir, hostLayout().env.path)
-	body, err := os.ReadFile(envFile)
-	if err != nil {
-		t.Fatalf("read the environment file: %v", err)
-	}
-	indented := regexp.MustCompile(`(?m)^`).ReplaceAllString(string(body), "  ")
+	indented := regexp.MustCompile(`(?m)^`).ReplaceAllString(read(t, envFile), "  ")
 	if err := os.WriteFile(envFile, []byte(indented), 0o600); err != nil {
 		t.Fatalf("edit the environment file: %v", err)
 	}
@@ -422,8 +475,10 @@ func TestARerunReadsAnIndentedLineAsThatKey(t *testing.T) {
 // spec: deployment.md#refusing — every refusal is decided before the first file is written,
 // so a rejected run leaves the node exactly as it was.
 //
-// The two refusals DESTDIR suppresses — no init system, not root — have no staged run to
-// assert them from (deployment.md#staged-installs), so they are left to the real install.
+// The refusals DESTDIR suppresses have no staged run to assert them from
+// (deployment.md#staged-installs). "Not root" is asserted below against a real install; the
+// other two cannot be reached from a suite at all, because the root check fires first — a
+// run as root would find its own host's init system and its own root-owned directories.
 func TestARefusalNamesItsCauseAndWritesNothing(t *testing.T) {
 	binary := agentBinary(t)
 	unreadable := filepath.Join(t.TempDir(), "not-executable")
@@ -440,19 +495,19 @@ func TestARefusalNamesItsCauseAndWritesNothing(t *testing.T) {
 	}{
 		{
 			name:  "the binary is missing",
-			args:  []string{"--binary", missing, "--hub", testHub, "--node", testNode},
+			args:  []string{"--binary", missing, "--hub", exampleHub, "--node", testNode},
 			stdin: testToken,
 			names: missing,
 		},
 		{
 			name:  "the binary is not executable",
-			args:  []string{"--binary", unreadable, "--hub", testHub, "--node", testNode},
+			args:  []string{"--binary", unreadable, "--hub", exampleHub, "--node", testNode},
 			stdin: testToken,
 			names: unreadable,
 		},
 		{
 			name:  "no --binary",
-			args:  []string{"--hub", testHub, "--node", testNode},
+			args:  []string{"--hub", exampleHub, "--node", testNode},
 			stdin: testToken,
 			names: "--binary",
 		},
@@ -464,7 +519,7 @@ func TestARefusalNamesItsCauseAndWritesNothing(t *testing.T) {
 		},
 		{
 			name:  "no --node",
-			args:  []string{"--binary", binary, "--hub", testHub},
+			args:  []string{"--binary", binary, "--hub", exampleHub},
 			stdin: testToken,
 			names: "--node",
 		},
@@ -476,22 +531,53 @@ func TestARefusalNamesItsCauseAndWritesNothing(t *testing.T) {
 		},
 		{
 			name:  "no token anywhere",
-			args:  []string{"--binary", binary, "--hub", testHub, "--node", testNode},
+			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", testNode},
 			stdin: "",
 			names: "MONITOR_TOKEN",
 		},
 		{
-			// Not a row of the table: the environment file is one KEY=VALUE per line, so a
-			// value carrying a newline would write a second line the agent reads as
-			// configuration — a mistyped --node could override the stored token.
+			// The environment file is one KEY=VALUE per line, so a value carrying a line
+			// break would write a second line the agent reads as configuration — a mistyped
+			// --node could override the stored token.
 			name:  "a value carrying a newline",
-			args:  []string{"--binary", binary, "--hub", testHub, "--node", "server-b\nMONITOR_TOKEN=x"},
+			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", "server-b\nMONITOR_TOKEN=x"},
 			stdin: testToken,
-			names: "newline",
+			names: "line break",
+		},
+		{
+			// A lone carriage return ends a line for the agent's parser too (ADR 0020), so a
+			// value carrying one smuggles a second key past a guard that only knows \n.
+			name:  "a value carrying a carriage return",
+			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", "server-b\rMONITOR_HUB=https://elsewhere.example.com"},
+			stdin: testToken,
+			names: "line break",
+		},
+		{
+			// And the token takes the same route: it arrives on stdin, where a carriage
+			// return is not the end of the line.
+			name:  "a token carrying a carriage return",
+			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", testNode},
+			stdin: testToken + "\rMONITOR_HUB=https://elsewhere.example.com",
+			names: "line break",
+		},
+		{
+			// The agent refuses the whole file over a value that opens with a quote and
+			// never closes it, so installing one leaves a node that never starts, its hub
+			// and its name taken down with it.
+			name:  "a value opening with a quote it does not close",
+			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", `"server-b`},
+			stdin: testToken,
+			names: "quote",
+		},
+		{
+			name:  "a token opening with a quote it does not close",
+			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", testNode},
+			stdin: "'" + testToken,
+			names: "quote",
 		},
 		{
 			name:  "an unknown flag",
-			args:  []string{"--binary", binary, "--hub", testHub, "--node", testNode, "--token", testToken},
+			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", testNode, "--token", testToken},
 			stdin: "",
 			names: "usage",
 		},
@@ -513,6 +599,38 @@ func TestARefusalNamesItsCauseAndWritesNothing(t *testing.T) {
 			assertNoToken(t, stdout, stderr)
 		})
 	}
+}
+
+// spec: deployment.md#refusing — a real install refuses for a user that is not root and says
+// to re-run under sudo. It is the last check before the first write, so the run touches
+// nothing on the machine the suite happens to be running on.
+func TestARealInstallRefusesForAUserThatIsNotRoot(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("this refusal is the one root passes; a real install would touch this machine")
+	}
+
+	stdout, stderr, err := run{
+		args:  []string{"--binary", agentBinary(t), "--hub", exampleHub, "--node", testNode},
+		stdin: testToken,
+	}.start(t)
+	if err == nil {
+		t.Fatalf("a real install succeeded without root; it should have refused")
+	}
+	if !strings.Contains(stdout+stderr, "sudo") {
+		t.Errorf("the refusal does not say to re-run under sudo; it said:\n%s%s", stdout, stderr)
+	}
+	assertNoToken(t, stdout, stderr)
+}
+
+// spec: deployment.md#refusing — the value-format refusal is about a quote a value never
+// closes, and a value that closes it is not one: the agent strips one matching pair and
+// reads what stands inside it (ADR 0020).
+func TestAQuotedValueIsInstalledAsWhatItQuotes(t *testing.T) {
+	destDir := t.TempDir()
+	install(t, destDir, agentBinary(t), exampleHub, `"server-b"`, testToken)
+
+	assertEnv(t, destDir, exampleHub, "server-b", testToken)
+	assertLayout(t, destDir)
 }
 
 // spec: deployment.md#staged-installs — no service is registered, started or restarted. The
@@ -543,7 +661,7 @@ func TestAStagedRunCallsNoServiceCommand(t *testing.T) {
 	destDir := t.TempDir()
 	run{
 		destDir: destDir,
-		args:    []string{"--binary", agentBinary(t), "--hub", testHub, "--node", testNode},
+		args:    []string{"--binary", agentBinary(t), "--hub", exampleHub, "--node", testNode},
 		stdin:   testToken,
 		pathDir: pathDir,
 	}.mustRun(t)
@@ -559,7 +677,7 @@ func TestAStagedRunCallsNoServiceCommand(t *testing.T) {
 // are genuinely absent rather than merely unused.
 func TestAStagedRunNeedsNoInitSystemOnPath(t *testing.T) {
 	pathDir := t.TempDir()
-	for _, tool := range []string{"basename", "dirname", "mkdir", "rm", "cp", "chmod", "mv", "uname", "id"} {
+	for _, tool := range []string{"basename", "dirname", "mkdir", "rm", "cp", "chmod", "mv", "uname", "id", "mktemp"} {
 		found, err := exec.LookPath(tool)
 		if err != nil {
 			t.Fatalf("find %s: %v", tool, err)
@@ -577,29 +695,72 @@ func TestAStagedRunNeedsNoInitSystemOnPath(t *testing.T) {
 	destDir := t.TempDir()
 	run{
 		destDir: destDir,
-		args:    []string{"--binary", agentBinary(t), "--hub", testHub, "--node", testNode},
+		args:    []string{"--binary", agentBinary(t), "--hub", exampleHub, "--node", testNode},
 		stdin:   testToken,
 		pathDir: pathDir,
 		onlyDir: true,
 	}.mustRun(t)
 
 	assertLayout(t, destDir)
-	assertEnv(t, destDir, testHub, testNode, testToken)
+	assertEnv(t, destDir, exampleHub, testNode, testToken)
+}
+
+// spec: deployment.md#staged-installs — the refusals a real install makes do not apply. A
+// real install requires the environment file's directory to be root's, and under DESTDIR
+// that directory belongs to whoever runs the suite.
+func TestAStagedRunAcceptsADirectoryThatIsNotRootsOwn(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("the staging tree would be root's, so this asserts nothing")
+	}
+	destDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Dir(filepath.Join(destDir, hostLayout().env.path)), 0o755); err != nil {
+		t.Fatalf("prepare the staging tree: %v", err)
+	}
+
+	install(t, destDir, agentBinary(t), exampleHub, testNode, testToken)
+
+	assertEnv(t, destDir, exampleHub, testNode, testToken)
+	assertLayout(t, destDir)
 }
 
 // spec: deployment.md#where-things-live — the modes are the table's whatever umask the
 // operator ran with. Under a permissive umask a run that only copied modes across would
-// leave the environment file readable by every account on the node.
+// leave the environment file readable by every account on the node — and the directory it
+// sits in writable by every account, which the file modes alone do not show.
 func TestTheModesDoNotFollowTheCallersUmask(t *testing.T) {
 	destDir := t.TempDir()
 	run{
 		destDir: destDir,
-		args:    []string{"--binary", agentBinary(t), "--hub", testHub, "--node", testNode},
+		args:    []string{"--binary", agentBinary(t), "--hub", exampleHub, "--node", testNode},
 		stdin:   testToken,
 		umask:   "000",
 	}.mustRun(t)
 
 	assertLayout(t, destDir)
+	assertDirModes(t, destDir)
+}
+
+// assertDirModes checks every directory the run created below destDir. Each file's mode is
+// set explicitly, so a directory is the only thing the caller's umask can reach: /etc/monitor
+// left drwxrwxrwx is a token every account on the node can replace.
+func assertDirModes(t *testing.T, destDir string) {
+	t.Helper()
+	err := filepath.WalkDir(destDir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || !entry.IsDir() || path == destDir {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if info.Mode().Perm() != 0o755 {
+			t.Errorf("the directory %s has mode %04o, want 0755", path, info.Mode().Perm())
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk %s: %v", destDir, err)
+	}
 }
 
 // spec: deployment.md#invariants — a run that fails after it has begun writing stops at that
@@ -617,7 +778,7 @@ func TestARunThatFailsAfterWritingNamesWhatItWrote(t *testing.T) {
 
 	stdout, stderr, err := run{
 		destDir: destDir,
-		args:    []string{"--binary", agentBinary(t), "--hub", testHub, "--node", testNode},
+		args:    []string{"--binary", agentBinary(t), "--hub", exampleHub, "--node", testNode},
 		stdin:   testToken,
 	}.start(t)
 	if err == nil {
@@ -638,16 +799,13 @@ func TestARunThatFailsAfterWritingNamesWhatItWrote(t *testing.T) {
 // repository ships, byte for byte: it is a constant, so nothing is rendered into it.
 func TestTheInstalledServiceIsTheShippedFile(t *testing.T) {
 	destDir := t.TempDir()
-	install(t, destDir, agentBinary(t), testHub, testNode, testToken)
+	install(t, destDir, agentBinary(t), exampleHub, testNode, testToken)
 
 	source := agentUnit
 	if runtime.GOOS == "darwin" {
 		source = agentPlist
 	}
-	shipped, err := os.ReadFile(source)
-	if err != nil {
-		t.Fatalf("read %s: %v", source, err)
-	}
+	shipped := []byte(read(t, source))
 	if installed := tree(t, destDir)[hostLayout().service.path]; !bytes.Equal(installed, shipped) {
 		t.Errorf("the installed service definition differs from %s", source)
 	}
@@ -661,20 +819,16 @@ func TestTheAgentLogBelongsToTheLaunchdLayoutOnly(t *testing.T) {
 		t.Skip("the log file is a macOS row of the layout table")
 	}
 	destDir, binary := t.TempDir(), agentBinary(t)
-	install(t, destDir, binary, testHub, testNode, testToken)
+	install(t, destDir, binary, exampleHub, testNode, testToken)
 
 	logFile := filepath.Join(destDir, "var/log/monitor-agent.log")
 	if err := os.WriteFile(logFile, []byte("a line the agent already wrote\n"), 0o600); err != nil {
 		t.Fatalf("write the log: %v", err)
 	}
 
-	install(t, destDir, binary, testHub, testNode, testToken)
+	install(t, destDir, binary, exampleHub, testNode, testToken)
 
-	kept, err := os.ReadFile(logFile)
-	if err != nil {
-		t.Fatalf("read the log: %v", err)
-	}
-	if len(kept) == 0 {
+	if kept := read(t, logFile); kept == "" {
 		t.Errorf("the second run truncated the agent's log")
 	}
 }

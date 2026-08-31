@@ -97,10 +97,14 @@ Every refusal below is decided before the first file is written, so the node is 
 |---|---|---|
 | any | `--binary` names a file that is missing or not executable | refuses, naming the path |
 | any | `--hub` or `--node` missing | refuses, naming the flag |
+| any | a flag that takes a value is given without one | refuses, naming the flag |
 | nothing installed | no token in the environment and none on stdin | refuses, naming `MONITOR_TOKEN` |
+| any | a value carrying a line break, or opening with a quote it does not close | refuses, naming no value: one of the three is the token |
 | any | an unknown flag | refuses, printing the usage |
+| any | the service definition it installs is not beside the script | refuses, naming the path |
 | a real install | the host has neither systemd nor launchd | refuses, naming what is supported |
 | a real install | the invoking user is not root | refuses, saying to re-run under `sudo` |
+| a real install | the environment file's directory exists and is not owned by root | refuses, naming the directory |
 
 ### Re-running
 
@@ -141,7 +145,7 @@ makes the behaviour above testable without touching the machine running the test
 | State | Event | Behaviour |
 |---|---|---|
 | any | `DESTDIR` set | every path is written beneath it, with the same names and the same modes, in the layout of the host's own operating system |
-| any | `DESTDIR` set | no service is registered, started or restarted; neither root nor an init system is required, and the two refusals that ask for them do not apply |
+| any | `DESTDIR` set | no service is registered, started or restarted, and the refusals a real install makes — root, its ownership of the environment file's directory, an init system — do not apply |
 
 ## Invariants
 

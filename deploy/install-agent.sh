@@ -49,17 +49,47 @@ refuse() {
 	exit 1
 }
 
-# Leading blanks are what systemd's EnvironmentFile and the agent's own parser both ignore,
-# so this reader ignores them too: a hand-indented line is still that key, and a token behind
-# one is still a stored token (deployment.md#edge-cases).
-trim_leading() {
+# Blanks around a line, around a key and around a value are what systemd's EnvironmentFile
+# and the agent's own parser both ignore, so this reader ignores them too.
+trim() {
 	trimmed=$1
 	while :; do
 		case $trimmed in
 		" "* | "	"*) trimmed=${trimmed#?} ;;
+		*" " | *"	") trimmed=${trimmed%?} ;;
 		*) return 0 ;;
 		esac
 	done
+}
+
+# Strip one matching pair of surrounding quotes, as the agent's parser does: the quotes say
+# where the value ends, nothing more.
+unquote() {
+	unquoted=$1
+	case $unquoted in
+	"'"*"'" | '"'*'"')
+		unquoted=${unquoted#?}
+		unquoted=${unquoted%?}
+		;;
+	esac
+}
+
+# Split one line of the environment file into $key and $value by the agent's own rules
+# (ADR 0020), and fail for a line that assigns nothing. A line the agent reads as a key has
+# to be a line this script recognises and rewrites in place: one it read more narrowly would
+# leave a hand-written token invisible on a re-run, and a revoked one on disk under a second
+# MONITOR_TOKEN after a rotation (deployment.md#edge-cases).
+env_line() {
+	trim "$1"
+	case $trimmed in
+	*=*) assignment=$trimmed ;;
+	*) return 1 ;;
+	esac
+	trim "${assignment%%=*}"
+	key=$trimmed
+	trim "${assignment#*=}"
+	unquote "$trimmed"
+	value=$unquoted
 }
 
 # Read one value out of the environment file without executing a line of it: the file holds
@@ -69,37 +99,43 @@ stored_value() {
 	line=
 	if [ -f "$1" ]; then
 		while IFS= read -r line || [ -n "$line" ]; do
-			trim_leading "$line"
-			case $trimmed in
-			"$2"=*) stored=${trimmed#"$2"=} ;;
-			esac
+			if env_line "$line" && [ "$key" = "$2" ]; then
+				stored=$value
+			fi
 		done <"$1"
 	fi
 }
 
 # Create an empty file at a path nothing else may have prepared. Unlinking first and then
 # refusing to clobber (`set -C` opens with O_EXCL) is what stops a name another account
-# planted from being written through: a symlink there would make root write the token into
-# that account's file, and on a Homebrew Mac /usr/local/etc is not root's. The subshell
-# drops the EXIT trap, which it would otherwise inherit and fire a second time.
+# planted from being written through: a symlink there would make root write into that
+# account's file.
 create_file() {
 	rm -f "$1"
 	(
-		trap - EXIT
 		umask "$2"
 		set -C
 		: >"$1"
 	)
 }
 
+# A temporary next to $1, under a name nothing can predict, in $temp. Every write after the
+# creation re-opens the path by name and would follow a symlink dropped there in between, and
+# the directory need not be root's — on a Homebrew Mac /usr/local/etc is not. mktemp creates
+# it 0600, which is the environment file's own mode; a caller that needs another one chmods
+# before the rename.
+create_temp() {
+	mkdir -p "$(dirname "$1")"
+	temp=$(mktemp "$1.XXXXXXXX")
+}
+
 # Copy one file into place with the mode the layout table gives it. The temporary and the
 # rename are what let a running agent's binary be replaced under it.
 install_file() {
-	mkdir -p "$(dirname "$3")"
-	create_file "$3.new" 022
-	cp "$1" "$3.new"
-	chmod "$2" "$3.new"
-	mv "$3.new" "$3"
+	create_temp "$3"
+	cp "$1" "$temp"
+	chmod "$2" "$temp"
+	mv "$temp" "$3"
 	written="$written  $3
 "
 }
@@ -107,9 +143,7 @@ install_file() {
 # Rewrite MONITOR_HUB, MONITOR_NODE and MONITOR_TOKEN, and leave every other line of an
 # existing file alone — a file edited by hand is supported (deployment.md#edge-cases).
 write_env_file() {
-	mkdir -p "$(dirname "$1")"
-	create_file "$1.new" 077
-	chmod 0600 "$1.new"
+	create_temp "$1"
 
 	has_hub=0
 	has_node=0
@@ -117,29 +151,30 @@ write_env_file() {
 	line=
 	if [ -f "$1" ]; then
 		while IFS= read -r line || [ -n "$line" ]; do
-			trim_leading "$line"
-			case $trimmed in
-			MONITOR_HUB=*)
-				line="MONITOR_HUB=$hub"
-				has_hub=1
-				;;
-			MONITOR_NODE=*)
-				line="MONITOR_NODE=$node"
-				has_node=1
-				;;
-			MONITOR_TOKEN=*)
-				line="MONITOR_TOKEN=$token"
-				has_token=1
-				;;
-			esac
+			if env_line "$line"; then
+				case $key in
+				MONITOR_HUB)
+					line="MONITOR_HUB=$hub"
+					has_hub=1
+					;;
+				MONITOR_NODE)
+					line="MONITOR_NODE=$node"
+					has_node=1
+					;;
+				MONITOR_TOKEN)
+					line="MONITOR_TOKEN=$token"
+					has_token=1
+					;;
+				esac
+			fi
 			printf '%s\n' "$line"
-		done <"$1" >>"$1.new"
+		done <"$1" >>"$temp"
 	fi
-	[ "$has_hub" -eq 1 ] || printf 'MONITOR_HUB=%s\n' "$hub" >>"$1.new"
-	[ "$has_node" -eq 1 ] || printf 'MONITOR_NODE=%s\n' "$node" >>"$1.new"
-	[ "$has_token" -eq 1 ] || printf 'MONITOR_TOKEN=%s\n' "$token" >>"$1.new"
+	[ "$has_hub" -eq 1 ] || printf 'MONITOR_HUB=%s\n' "$hub" >>"$temp"
+	[ "$has_node" -eq 1 ] || printf 'MONITOR_NODE=%s\n' "$node" >>"$temp"
+	[ "$has_token" -eq 1 ] || printf 'MONITOR_TOKEN=%s\n' "$token" >>"$temp"
 
-	mv "$1.new" "$1"
+	mv "$temp" "$1"
 	written="$written  $1
 "
 }
@@ -150,20 +185,18 @@ node=
 
 while [ "$#" -gt 0 ]; do
 	case $1 in
-	--binary | --hub | --node)
-		[ "$#" -ge 2 ] || refuse "$1 needs a value"
-		;;
-	esac
-	case $1 in
 	--binary)
+		[ "$#" -ge 2 ] || refuse "$1 needs a value"
 		binary=$2
 		shift 2
 		;;
 	--hub)
+		[ "$#" -ge 2 ] || refuse "$1 needs a value"
 		hub=$2
 		shift 2
 		;;
 	--node)
+		[ "$#" -ge 2 ] || refuse "$1 needs a value"
 		node=$2
 		shift 2
 		;;
@@ -215,6 +248,15 @@ esac
 destdir=${DESTDIR:-}
 if [ -z "$destdir" ]; then
 	[ "$(id -u)" -eq 0 ] || refuse "must run as root: re-run under sudo"
+	# Nothing but this script creates the environment file's directory, so requiring root to
+	# own it costs a legitimate installation nothing and closes both holes in a directory an
+	# unprivileged account owns: a MONITOR_TOKEN line planted there for the read below to
+	# adopt, and a name planted there for root to write the token through. `find -user` is
+	# the ownership test both BSD and GNU have; `stat` is not.
+	env_dir=$(dirname "$env_file")
+	if [ -d "$env_dir" ] && [ -z "$(find "$env_dir" -maxdepth 0 -user root)" ]; then
+		refuse "the environment file's directory is not owned by root: $env_dir"
+	fi
 	command -v "$init_tool" >/dev/null 2>&1 ||
 		refuse "this host has neither systemd nor launchd; the agent installs on Debian and macOS"
 fi
@@ -232,14 +274,28 @@ if [ -z "$token" ]; then
 fi
 [ -n "$token" ] || refuse "no token: set MONITOR_TOKEN or pipe the token in on stdin"
 
-# The environment file is one KEY=VALUE per line, so a value carrying a newline would write
-# a second line the agent reads as configuration. The message names no value: one of them is
-# the token.
+# A value the agent's parser cannot read back as itself is refused here, before anything is
+# written. Each message names no value: one of them is the token.
 newline='
 '
-for value in "$hub" "$node" "$token"; do
-	case $value in
-	*"$newline"*) refuse "a value contains a newline, and the environment file is one KEY=VALUE per line" ;;
+carriage_return=$(printf '\r')
+for checked in "$hub" "$node" "$token"; do
+	# The environment file is one KEY=VALUE per line, and a lone carriage return ends a line
+	# for the agent too (ADR 0020), so either one would write a second line the agent reads
+	# as configuration — a hub URL the operator never passed, on a node that reports there
+	# silently.
+	case $checked in
+	*"$newline"* | *"$carriage_return"*)
+		refuse "a value contains a line break, and the environment file is one KEY=VALUE per line"
+		;;
+	esac
+	# A value that opens with a quote and never closes it makes the agent refuse the whole
+	# file, so the install would succeed on a node that never starts again.
+	case $checked in
+	"'"*"'" | '"'*'"') ;;
+	"'"* | '"'*)
+		refuse "a value opens with a quote it does not close, which the agent's parser refuses"
+		;;
 	esac
 done
 
