@@ -56,8 +56,16 @@ type Printer struct {
 	locale Locale
 }
 
-// For returns the printer of a locale.
-func For(locale Locale) *Printer { return &Printer{locale: locale} }
+// For returns the printer of a locale. A locale the catalogue does not know becomes
+// English here, so every printer speaks a language the tables and the catalogue hold.
+func For(locale Locale) *Printer {
+	switch locale {
+	case English, Russian:
+		return &Printer{locale: locale}
+	default:
+		return &Printer{locale: English}
+	}
+}
 
 // Locale is the language this printer speaks.
 func (p *Printer) Locale() Locale { return p.locale }

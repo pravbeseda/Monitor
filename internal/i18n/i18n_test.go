@@ -112,3 +112,25 @@ func TestParse(t *testing.T) {
 		}
 	}
 }
+
+// Nothing reaches a printer with an unknown locale today: configuration and Negotiate both
+// refuse one. The invariant is held anyway because a locale passed straight to a channel
+// would panic inside that channel's own goroutine, which costs the hub, not one message.
+func TestPrinterFallsBackToEnglish(t *testing.T) {
+	p := i18n.For(i18n.Locale("de"))
+	if got := p.Locale(); got != i18n.English {
+		t.Errorf("Locale = %q, want %q", got, i18n.English)
+	}
+	if got := p.Bytes(1.5e9); got != "1.5 GB" {
+		t.Errorf("Bytes = %q, want the English form", got)
+	}
+	if got := p.Percent(34.24); got != "34.2%" {
+		t.Errorf("Percent = %q, want the English form", got)
+	}
+	if got := p.Time(time.Date(2026, 8, 28, 10, 5, 0, 0, time.UTC)); got != "2026-08-28 10:05 UTC" {
+		t.Errorf("Time = %q, want the English form", got)
+	}
+	if got := p.T("page.title"); got != "Monitor" {
+		t.Errorf("T = %q, want the English text", got)
+	}
+}
