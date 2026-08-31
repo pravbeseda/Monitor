@@ -54,7 +54,7 @@ can see ([ADR 0017](decisions/0017-one-spec-and-decision-gates.md)). New specs s
 | [agent.md](specs/agent.md) | The agent: local configuration, tick loop, delivery and configuration application | approved |
 | [evaluation.md](specs/evaluation.md) | Levels, hysteresis, the event log, silence, digests and the notifier boundary | approved |
 | [history.md](specs/history.md) | The history series, `/api/v1/series`, `/api/v1/history` and the drill-down page | approved |
-| [deployment.md](specs/deployment.md) | The install layout, the units and what `install-agent.sh` does to a node | draft |
+| [deployment.md](specs/deployment.md) | The install layout, the units and what `install-agent.sh` does to a node | approved |
 
 ## Design notes
 

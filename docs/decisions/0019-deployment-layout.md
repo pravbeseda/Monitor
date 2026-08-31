@@ -24,13 +24,19 @@ can read.
   a login agent, so a node that nobody has logged into still reports.
 - **One environment file per binary carries everything that varies** — for the agent,
   `MONITOR_HUB`, `MONITOR_NODE` and `MONITOR_TOKEN`; for the hub, its notifier credentials
-  and per-node tokens. Mode `0600`, owned by the account the service runs as.
+  and the per-node tokens `hub.yaml` names. Mode `0600`, owned by the account that service
+  runs as.
+- **The agent runs as root and the hub does not.** The agent stats every mounted volume and
+  a launchd daemon is a root process anyway; the hub only listens on a socket, so it runs as
+  an unprivileged `monitor` account created once when the host is set up. That account owns
+  `/var/lib/monitor` and `hub.env`.
 - **The unit files are therefore constants.** systemd expands `${MONITOR_HUB}` from the
   environment file in `ExecStart`; the launchd plist runs
   `/bin/sh -c '. …/agent.env && exec monitor-agent …'`, which is what gives launchd the same
   ability. The plist keeps no secret, so it may stay world-readable like every other daemon.
 - **`install-agent.sh` installs a binary that already exists** (`--binary`), never builds
-  one, and never takes the token as an argument — it reads `MONITOR_TOKEN` or stdin.
+  one, and never takes the token as an argument — it reads `MONITOR_TOKEN`, or stdin, which
+  is the route that survives `sudo` resetting the environment.
 - **`DESTDIR` stages an install under a prefix** and suppresses every service command, which
   is how the script is tested.
 
@@ -63,3 +69,11 @@ can read.
   changed URL means editing a systemd unit rather than an environment file.
 - **Building on the node** — rejected: a Go toolchain on every machine to produce a binary
   the developer's machine can cross-compile in one command.
+- **A `--token` flag** — rejected: arguments are visible in `ps` to every user on the box and
+  land in shell history. `MONITOR_TOKEN` covers a root shell, stdin covers `sudo`, and
+  between them no invocation needs the secret on the command line.
+- **Running the hub as root as well** — rejected: it needs no privilege, and one account
+  created by hand is cheaper than a network listener with none.
+- **A `--prefix` flag, or a fakeroot/chroot test harness, instead of `DESTDIR`** — rejected:
+  `DESTDIR` is the convention every packager already knows, it needs no privileges and no
+  extra tool, and it keeps one code path for the real install and the staged one.
