@@ -37,6 +37,7 @@ One decision per file, each stating what was rejected and why. New records start
 | [0017](decisions/0017-one-spec-and-decision-gates.md) | One document per unit of work; gates on decisions, not documents | accepted |
 | [0018](decisions/0018-history-through-the-api.md) | History is served by the hub's API; a chart is one of its consumers | accepted |
 | [0019](decisions/0019-deployment-layout.md) | Install into system paths, with one environment file per binary | accepted |
+| [0020](decisions/0020-agent-reads-its-environment-file.md) | The agent reads its own environment file; no shell sources it | accepted |
 
 ## Behaviour specs
 

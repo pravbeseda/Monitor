@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -35,8 +36,6 @@ var layout = []struct {
 	name  string
 	file  string
 	paths []string
-	// extra are paths the unit needs that the layout table does not fix.
-	extra []string
 }{
 	{
 		name:  "agent unit",
@@ -61,7 +60,6 @@ var layout = []struct {
 			"/usr/local/etc/monitor/agent.env",
 			"/var/log/monitor-agent.log",
 		},
-		extra: []string{"/bin/sh"}, // launchd has no EnvironmentFile; a shell sources it.
 	},
 }
 
@@ -86,10 +84,7 @@ var (
 	// path (docs/specs/deployment.md) and an XML closing tag (</key>) are not read as
 	// absolute paths.
 	absolutePath = regexp.MustCompile(`(^|[^A-Za-z0-9._/<-])(/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*)`)
-	// The value stops at the closing XML tag as well, so the plist's flags read the same
-	// way the unit's do.
-	flagValue  = regexp.MustCompile(`--(hub|node)[ \t]+([^\s<]+)`)
-	assignment = regexp.MustCompile(`(?m)^([A-Z][A-Z0-9_]*)=(.*)$`)
+	assignment   = regexp.MustCompile(`(?m)^([A-Z][A-Z0-9_]*)=(.*)$`)
 	// A bare RestartSec= or RestartSec=0 is a busy loop, not "after a short delay".
 	restartDelay = regexp.MustCompile(`(?m)^RestartSec=[1-9][0-9]*(ms|s|min)?$`)
 	urlLiteral   = regexp.MustCompile(`[a-z][a-z0-9+.-]*://[^\s"'<]+`)
@@ -139,7 +134,7 @@ func TestUnitsNameNoPathTheSpecDoesNotFix(t *testing.T) {
 	for _, unit := range layout {
 		t.Run(unit.name, func(t *testing.T) {
 			allowed := map[string]bool{}
-			for _, path := range append(append([]string{}, unit.paths...), unit.extra...) {
+			for _, path := range unit.paths {
 				allowed[path] = true
 				allowed[filepath.Dir(path)] = true // the directory a fixed path lives in
 			}
@@ -152,41 +147,57 @@ func TestUnitsNameNoPathTheSpecDoesNotFix(t *testing.T) {
 	}
 }
 
-// spec: deployment.md#the-environment-files — the hub URL and the node name are deployment
-// settings: the service expands them from the environment file and never spells them out.
-func TestAgentTakesHubAndNodeFromTheEnvironmentFile(t *testing.T) {
+// agentCommand is the command line each service definition starts, however that system
+// spells one: an ExecStart line for systemd, a ProgramArguments array for launchd.
+func agentCommand(t *testing.T, file string) []string {
+	t.Helper()
+	if filepath.Ext(file) == ".plist" {
+		var doc struct {
+			Args []string `xml:"dict>array>string"`
+		}
+		if err := xml.Unmarshal([]byte(read(t, file)), &doc); err != nil {
+			t.Fatalf("parse %s: %v", file, err)
+		}
+		return doc.Args
+	}
+	for _, line := range strings.Split(code(t, file), "\n") {
+		if command, found := strings.CutPrefix(line, "ExecStart="); found {
+			return strings.Fields(command)
+		}
+	}
+	t.Fatalf("%s has no ExecStart", file)
+	return nil
+}
+
+// spec: deployment.md#the-environment-files — the agent reads the file itself, so each
+// service passes it that path and nothing else. Spelling the hub URL or the node name out
+// here would also put them in `ps` for every local user (deployment.md#invariants).
+func TestTheAgentServicesStartTheBinaryWithItsEnvironmentFile(t *testing.T) {
 	tests := []struct {
 		name    string
 		file    string
 		envFile string
-		hub     string
-		node    string
 	}{
-		{"agent unit", agentUnit, "/etc/monitor/agent.env", "${MONITOR_HUB}", "${MONITOR_NODE}"},
-		{"agent plist", agentPlist, "/usr/local/etc/monitor/agent.env", `"$MONITOR_HUB"`, `"$MONITOR_NODE"`},
+		{"agent unit", agentUnit, "/etc/monitor/agent.env"},
+		{"agent plist", agentPlist, "/usr/local/etc/monitor/agent.env"},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			body := read(t, tc.file)
-			if !strings.Contains(body, tc.envFile) {
-				t.Fatalf("%s does not read %s", tc.file, tc.envFile)
-			}
-			want := map[string]string{"hub": tc.hub, "node": tc.node}
-			seen := map[string]bool{}
-			for _, match := range flagValue.FindAllStringSubmatch(body, -1) {
-				seen[match[1]] = true
-				if match[2] != want[match[1]] {
-					t.Errorf("%s passes --%s %s, want %s from the environment file",
-						tc.file, match[1], match[2], want[match[1]])
-				}
-			}
-			for flag := range want {
-				if !seen[flag] {
-					t.Errorf("%s passes no --%s", tc.file, flag)
-				}
+			want := []string{"/usr/local/bin/monitor-agent", "--env-file", tc.envFile}
+			if got := agentCommand(t, tc.file); !slices.Equal(got, want) {
+				t.Errorf("%s starts %q, want %q", tc.file, got, want)
 			}
 		})
+	}
+}
+
+// spec: deployment.md#the-environment-files — the agent unit must not hand the file to
+// systemd as well. That would pass every other test here while putting the token back into
+// the agent's own environment, where anything that can read the process can read it.
+func TestTheAgentUnitDoesNotAlsoLoadTheEnvironmentFile(t *testing.T) {
+	if strings.Contains(code(t, agentUnit), "EnvironmentFile=") {
+		t.Errorf("%s sets EnvironmentFile=; the agent reads the file itself", agentUnit)
 	}
 }
 
@@ -307,26 +318,12 @@ func TestThePlistStartsAtLoadAndKeepsTheAgentAlive(t *testing.T) {
 	}
 }
 
-// spec: deployment.md#the-services — launchd supervises what ProgramArguments starts, so the
-// shell that sources the environment file has to hand the process over rather than stay in
-// the middle of it.
-func TestThePlistExecsTheAgent(t *testing.T) {
-	var doc struct {
-		Args []string `xml:"dict>array>string"`
-	}
-	if err := xml.Unmarshal([]byte(read(t, agentPlist)), &doc); err != nil {
-		t.Fatalf("parse %s: %v", agentPlist, err)
-	}
-	if len(doc.Args) != 3 {
-		t.Fatalf("ProgramArguments = %q, want the shell, -c and one command", doc.Args)
-	}
-	if doc.Args[0] != "/bin/sh" || doc.Args[1] != "-c" {
-		t.Fatalf("ProgramArguments starts with %q, want /bin/sh -c", doc.Args[:2])
-	}
-	steps := strings.Split(doc.Args[2], "&&")
-	last := strings.TrimSpace(steps[len(steps)-1])
-	if !strings.HasPrefix(last, "exec /usr/local/bin/monitor-agent") {
-		t.Errorf("the command ends with %q, want it to exec the agent", last)
+// spec: deployment.md#the-environment-files — no shell stands between launchd and the
+// agent: POSIX `.` executes the file it reads, so a token pasted with a space in it would
+// run its own tail and log the failure.
+func TestThePlistStartsTheAgentWithoutAShell(t *testing.T) {
+	if strings.Contains(read(t, agentPlist), "/bin/sh") {
+		t.Errorf("%s still goes through a shell; the agent reads the environment file itself", agentPlist)
 	}
 }
 

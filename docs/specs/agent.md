@@ -6,7 +6,8 @@
 - **Decisions:** [0002](../decisions/0002-push-not-pull.md),
   [0003](../decisions/0003-sensors-are-modules.md),
   [0007](../decisions/0007-public-repository.md),
-  [0010](../decisions/0010-agent-configuration.md)
+  [0010](../decisions/0010-agent-configuration.md),
+  [0020](../decisions/0020-agent-reads-its-environment-file.md)
 
 ## Purpose
 
@@ -23,10 +24,18 @@ that a node is configured once and never edited again
 
 | Value | Source | Default |
 |---|---|---|
-| hub URL | `--hub` | none: a deployment setting |
-| node name | `--node` | none: it must match the name the hub's token belongs to |
-| token | `MONITOR_TOKEN` | none: a secret never lives in a file in the tree |
+| hub URL | `--hub`, or `MONITOR_HUB` in the file `--env-file` names | none: a deployment setting |
+| node name | `--node`, or `MONITOR_NODE` in that file | none: it must match the name the hub's token belongs to |
+| token | `MONITOR_TOKEN`, or that key in that file | none: a secret never lives in a file in the tree |
 | bootstrap tick | compiled in | 5m, until the first configuration arrives |
+
+Anything given explicitly wins over the file: a flag over its key, and `MONITOR_TOKEN` in
+the process environment over the file's token. The file is `KEY=VALUE` data the agent reads
+and never executes ([0020](../decisions/0020-agent-reads-its-environment-file.md)): a value
+may be wrapped in matching quotes to show where it ends, and is taken literally otherwise.
+An unreadable file names the path; a line that is not `KEY=VALUE`, or whose quote is never
+closed, names its number and no part of its text; and a key the agent does not know is
+ignored.
 
 ## Behaviour
 

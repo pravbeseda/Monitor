@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<!-- The agent, as a system daemon. Every path is fixed by docs/specs/deployment.md.
-	     launchd has no equivalent of EnvironmentFile, so a shell sources it: set -a exports
-	     the values, which is how the token reaches the agent, and exec hands the process
-	     over so that launchd supervises the agent rather than the shell. The file holds no
-	     secret, so it stays a world-readable daemon plist. -->
+	     launchd has no equivalent of EnvironmentFile, so the agent reads the file itself:
+	     no shell stands in between, nothing in the file is ever executed, and launchd
+	     supervises the agent directly. The plist holds no secret, so it stays a
+	     world-readable daemon plist. -->
 	<key>Label</key>
 	<string>io.github.pravbeseda.monitor-agent</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/bin/sh</string>
-		<string>-c</string>
-		<string>set -a &amp;&amp; . /usr/local/etc/monitor/agent.env &amp;&amp; set +a &amp;&amp; exec /usr/local/bin/monitor-agent --hub "$MONITOR_HUB" --node "$MONITOR_NODE"</string>
+		<string>/usr/local/bin/monitor-agent</string>
+		<string>--env-file</string>
+		<string>/usr/local/etc/monitor/agent.env</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>

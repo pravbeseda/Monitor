@@ -6,7 +6,8 @@
 - **Decisions:** [0005](../decisions/0005-poc-stack.md),
   [0007](../decisions/0007-public-repository.md),
   [0010](../decisions/0010-agent-configuration.md),
-  [0019](../decisions/0019-deployment-layout.md)
+  [0019](../decisions/0019-deployment-layout.md),
+  [0020](../decisions/0020-agent-reads-its-environment-file.md)
 
 ## Purpose
 
@@ -49,6 +50,11 @@ host is set up; the install guide has the command.
 Everything that differs between installations is a secret or a deployment setting, and none
 of it may live in this repository ([0007](../decisions/0007-public-repository.md)). Each
 binary therefore reads one environment file, and the unit that starts it is a constant.
+
+**The agent reads its own file** and never shells out to read it
+([0020](../decisions/0020-agent-reads-its-environment-file.md)): the service passes the path
+with `--env-file` and nothing from inside it. The hub keeps systemd's own
+`EnvironmentFile=`.
 
 For the agent that file is the whole of its local configuration: its three keys are the
 three values [agent.md](agent.md) allows a node to hold. The hub keeps its *secrets* there
@@ -144,6 +150,8 @@ makes the behaviour above testable without touching the machine running the test
   ([0007](../decisions/0007-public-repository.md)).
 - The token is never an argument to a command, never printed, and never lands in a file
   another user can read.
+- No deployment setting reaches a service's arguments either: a hub URL or a node name in
+  `ExecStart` is in `ps` for every local account.
 - Every refusal happens before the first write, so a rejected run leaves the node exactly as
   it was.
 - A run that fails after it has begun writing stops at that failure and names what it

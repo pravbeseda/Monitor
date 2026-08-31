@@ -11,8 +11,9 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-EnvironmentFile=/etc/monitor/agent.env
-ExecStart=/usr/local/bin/monitor-agent --hub ${MONITOR_HUB} --node ${MONITOR_NODE}
+# The agent reads the file itself, as data. Nothing of it reaches this command line, so no
+# deployment setting is visible in `ps` to every local user.
+ExecStart=/usr/local/bin/monitor-agent --env-file /etc/monitor/agent.env
 Restart=always
 RestartSec=5s
 
