@@ -1,0 +1,20 @@
+# The agent, as a system service. Every path is fixed by docs/specs/deployment.md, so this
+# file is the same on every node: what varies is in the environment file.
+
+[Unit]
+Description=Monitor agent
+After=network-online.target
+Wants=network-online.target
+# A node whose environment file has no token makes the agent exit at once, and the restart
+# loop is what keeps saying so. The default rate limit would silence it after five tries.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/monitor/agent.env
+ExecStart=/usr/local/bin/monitor-agent --hub ${MONITOR_HUB} --node ${MONITOR_NODE}
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
