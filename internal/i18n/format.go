@@ -44,11 +44,7 @@ func (p *Printer) Percent(value float64) string {
 
 // Time renders an instant in UTC: the hub stores UTC and the reader is one person.
 func (p *Printer) Time(at time.Time) string {
-	layout, known := timeLayouts[p.locale]
-	if !known {
-		layout = timeLayouts[English]
-	}
-	return at.UTC().Format(layout)
+	return at.UTC().Format(timeLayouts[p.locale])
 }
 
 // Number renders a plain value: a metric whose id carries no unit still has to be shown.

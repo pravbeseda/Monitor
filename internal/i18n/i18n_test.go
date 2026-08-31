@@ -112,3 +112,24 @@ func TestParse(t *testing.T) {
 		}
 	}
 }
+
+// A locale the catalogue does not know reaches a printer through configuration or a stale
+// link; it renders English rather than failing at the one call that has no English path.
+func TestPrinterFallsBackToEnglish(t *testing.T) {
+	p := i18n.For(i18n.Locale("de"))
+	if got := p.Locale(); got != i18n.English {
+		t.Errorf("Locale = %q, want %q", got, i18n.English)
+	}
+	if got := p.Bytes(1.5e9); got != "1.5 GB" {
+		t.Errorf("Bytes = %q, want the English form", got)
+	}
+	if got := p.Percent(34.24); got != "34.2%" {
+		t.Errorf("Percent = %q, want the English form", got)
+	}
+	if got := p.Time(time.Date(2026, 8, 28, 10, 5, 0, 0, time.UTC)); got != "2026-08-28 10:05 UTC" {
+		t.Errorf("Time = %q, want the English form", got)
+	}
+	if got := p.T("page.title"); got != "Monitor" {
+		t.Errorf("T = %q, want the English text", got)
+	}
+}
