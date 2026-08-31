@@ -29,7 +29,7 @@ per installation, which is what lets the unit files be constants.
 | agent binary | `/usr/local/bin/monitor-agent` | `/usr/local/bin/monitor-agent` | root, 0755 |
 | agent settings and token | `/etc/monitor/agent.env` | `/usr/local/etc/monitor/agent.env` | root, 0600 |
 | agent service | `/etc/systemd/system/monitor-agent.service` | `/Library/LaunchDaemons/io.github.pravbeseda.monitor-agent.plist` | root, 0644 |
-| agent output | the system log | `/var/log/monitor-agent.log` | root, 0644 |
+| agent log, macOS only | — | `/var/log/monitor-agent.log` | root, 0600 |
 | hub binary | `/usr/local/bin/monitor-hub` | — | root, 0755 |
 | hub settings and secrets | `/etc/monitor/hub.env` | — | `monitor`, 0600 |
 | hub configuration | `/etc/monitor/hub.yaml` | — | `monitor`, 0640 |
@@ -116,7 +116,7 @@ omitted.
 |---|---|---|
 | agent | the node reboots | it starts without anyone logging in |
 | agent | it exits, whatever the status | it is restarted after a short delay, and goes on being restarted however fast it keeps failing |
-| agent | it writes to stdout or stderr | the lines reach the system log on Debian, and `/var/log/monitor-agent.log` on macOS, where launchd has no journal to reach |
+| agent | it writes to stdout or stderr | the lines reach the journal on Debian, and `/var/log/monitor-agent.log` on macOS, where launchd has no journal to reach — and on neither system can another account read them |
 | agent | its environment file has no `MONITOR_TOKEN` | it exits at startup naming the variable, and the restart loop keeps that message coming to that log |
 | hub | the host reboots | it starts once the network is up |
 | hub | it exits, whatever the status | it is restarted after a short delay |

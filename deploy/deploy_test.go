@@ -83,16 +83,19 @@ var allowedNames = map[string]bool{
 
 var (
 	// absolutePath captures the character in front of the path as well, so that a relative
-	// path in a comment (docs/specs/deployment.md) is not read as an absolute one.
-	absolutePath = regexp.MustCompile(`(^|[^A-Za-z0-9._/-])(/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+)`)
+	// path (docs/specs/deployment.md) and an XML closing tag (</key>) are not read as
+	// absolute paths.
+	absolutePath = regexp.MustCompile(`(^|[^A-Za-z0-9._/<-])(/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*)`)
 	// The value stops at the closing XML tag as well, so the plist's flags read the same
 	// way the unit's do.
 	flagValue  = regexp.MustCompile(`--(hub|node)[ \t]+([^\s<]+)`)
 	assignment = regexp.MustCompile(`(?m)^([A-Z][A-Z0-9_]*)=(.*)$`)
-	urlLiteral = regexp.MustCompile(`[a-z][a-z0-9+.-]*://[^\s"'<]+`)
-	ipAddress  = regexp.MustCompile(`\b\d{1,3}(?:\.\d{1,3}){3}\b`)
-	dottedName = regexp.MustCompile(`[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+`)
-	letter     = regexp.MustCompile(`[A-Za-z]`)
+	// A bare RestartSec= or RestartSec=0 is a busy loop, not "after a short delay".
+	restartDelay = regexp.MustCompile(`(?m)^RestartSec=[1-9][0-9]*(ms|s|min)?$`)
+	urlLiteral   = regexp.MustCompile(`[a-z][a-z0-9+.-]*://[^\s"'<]+`)
+	ipAddress    = regexp.MustCompile(`\b\d{1,3}(?:\.\d{1,3}){3}\b`)
+	dottedName   = regexp.MustCompile(`[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+`)
+	letter       = regexp.MustCompile(`[A-Za-z]`)
 )
 
 func read(t *testing.T, name string) string {
@@ -104,12 +107,23 @@ func read(t *testing.T, name string) string {
 	return string(body)
 }
 
+// comment matches what a service definition ignores: a shell-style line in a unit, an XML
+// comment in a plist, and Apple's fixed doctype.
+var comment = regexp.MustCompile(`(?ms)^[ \t]*#.*?$|<!--.*?-->|<!DOCTYPE.*?>`)
+
+// code is the file with its comments removed. A path a unit only mentions in a comment is a
+// path the service never uses, and asserting on it would pass an ExecStart that lost it.
+func code(t *testing.T, name string) string {
+	t.Helper()
+	return comment.ReplaceAllString(read(t, name), "")
+}
+
 // spec: deployment.md#where-things-live — every path is fixed there, which is what lets a
 // unit be a constant.
 func TestUnitsNameThePathsTheSpecFixes(t *testing.T) {
 	for _, unit := range layout {
 		t.Run(unit.name, func(t *testing.T) {
-			body := read(t, unit.file)
+			body := code(t, unit.file)
 			for _, want := range unit.paths {
 				if !strings.Contains(body, want) {
 					t.Errorf("%s does not name %s", unit.file, want)
@@ -129,7 +143,7 @@ func TestUnitsNameNoPathTheSpecDoesNotFix(t *testing.T) {
 				allowed[path] = true
 				allowed[filepath.Dir(path)] = true // the directory a fixed path lives in
 			}
-			for _, match := range absolutePath.FindAllStringSubmatch(read(t, unit.file), -1) {
+			for _, match := range absolutePath.FindAllStringSubmatch(code(t, unit.file), -1) {
 				if !allowed[match[2]] {
 					t.Errorf("%s names %s, which the layout table does not fix", unit.file, match[2])
 				}
@@ -268,11 +282,14 @@ func TestOnlyTheHubRunsAsAnAccount(t *testing.T) {
 func TestBothUnitsRestartWithoutARateLimit(t *testing.T) {
 	for _, file := range []string{agentUnit, hubUnit} {
 		t.Run(file, func(t *testing.T) {
-			body := read(t, file)
-			for _, want := range []string{"Restart=always", "RestartSec=", "StartLimitIntervalSec=0"} {
+			body := code(t, file)
+			for _, want := range []string{"Restart=always", "StartLimitIntervalSec=0"} {
 				if !strings.Contains(body, want) {
 					t.Errorf("%s has no %s", file, want)
 				}
+			}
+			if !restartDelay.MatchString(body) {
+				t.Errorf("%s sets no RestartSec with a delay in it", file)
 			}
 		})
 	}
@@ -310,5 +327,46 @@ func TestThePlistExecsTheAgent(t *testing.T) {
 	last := strings.TrimSpace(steps[len(steps)-1])
 	if !strings.HasPrefix(last, "exec /usr/local/bin/monitor-agent") {
 		t.Errorf("the command ends with %q, want it to exec the agent", last)
+	}
+}
+
+// spec: deployment.md#the-services — the node reboots and the service comes back without
+// anyone logging in. Deleting [Install] makes `systemctl enable` a silent no-op, which is
+// exactly the failure nobody notices until the next reboot.
+func TestBothUnitsComeBackAfterAReboot(t *testing.T) {
+	for _, file := range []string{agentUnit, hubUnit} {
+		t.Run(file, func(t *testing.T) {
+			body := code(t, file)
+			for _, want := range []string{
+				"[Install]",
+				"WantedBy=multi-user.target",
+				"Wants=network-online.target",
+				"After=network-online.target",
+			} {
+				if !strings.Contains(body, want) {
+					t.Errorf("%s has no %s", file, want)
+				}
+			}
+		})
+	}
+}
+
+// spec: deployment.md#where-things-live — the hub's database is the account's alone, and
+// SQLite creates it with whatever umask the service was started with.
+func TestTheHubUnitKeepsItsDatabasePrivate(t *testing.T) {
+	if !strings.Contains(code(t, hubUnit), "UMask=0077") {
+		t.Errorf("%s sets no UMask=0077; SQLite would create the database world-readable", hubUnit)
+	}
+}
+
+// spec: deployment.md#the-services — both streams reach the log, and the startup error of a
+// missing token arrives on stderr.
+func TestThePlistLogsBothStreams(t *testing.T) {
+	body := code(t, agentPlist)
+	for _, key := range []string{"StandardOutPath", "StandardErrorPath"} {
+		routed := regexp.MustCompile(`<key>` + key + `</key>\s*<string>/var/log/monitor-agent\.log</string>`)
+		if !routed.MatchString(body) {
+			t.Errorf("%s does not send %s to /var/log/monitor-agent.log", agentPlist, key)
+		}
 	}
 }

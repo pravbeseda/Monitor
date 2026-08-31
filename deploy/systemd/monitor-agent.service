@@ -16,5 +16,12 @@ ExecStart=/usr/local/bin/monitor-agent --hub ${MONITOR_HUB} --node ${MONITOR_NOD
 Restart=always
 RestartSec=5s
 
+# The agent only reads: it stats mounted volumes and posts what it found. Root is what makes
+# every volume visible, and nothing beyond that is needed.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+
 [Install]
 WantedBy=multi-user.target
