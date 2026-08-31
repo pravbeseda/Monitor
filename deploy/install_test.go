@@ -618,6 +618,15 @@ func TestARefusalNamesItsCauseAndWritesNothing(t *testing.T) {
 			names: "read back as something else",
 		},
 		{
+			// The agent trims Unicode whitespace this script cannot see, so a token pasted
+			// with a non-breaking space would install as one string and be read back as
+			// another — a node that authenticates nowhere and reports nothing.
+			name:  "a token holding a non-breaking space",
+			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", testNode},
+			stdin: "\u00a0" + testToken,
+			names: "printable ASCII",
+		},
+		{
 			name:  "an unknown flag",
 			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", testNode, "--token", testToken},
 			stdin: "",
@@ -644,8 +653,8 @@ func TestARefusalNamesItsCauseAndWritesNothing(t *testing.T) {
 }
 
 // spec: deployment.md#refusing — a real install refuses for a user that is not root and says
-// to re-run under sudo. It is the last check before the first write, so the run touches
-// nothing on the machine the suite happens to be running on.
+// to re-run under sudo. Every check after it also refuses before the first write, so the run
+// touches nothing on the machine the suite happens to be running on.
 func TestARealInstallRefusesForAUserThatIsNotRoot(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("this refusal is the one root passes; a real install would touch this machine")

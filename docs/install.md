@@ -66,6 +66,11 @@ sudo install -o monitor -g monitor -m 0640 config.example.yaml /etc/monitor/hub.
 sudo install -o monitor -g monitor -m 0600 hub.env.example /etc/monitor/hub.env
 ```
 
+`agent.env` and `hub.env` look alike and are not read alike: systemd reads `hub.env` and
+accepts `export` prefixes and `;` comments, while the agent reads `agent.env` itself and
+refuses the whole file over a line it cannot parse ([ADR 0020](decisions/0020-agent-reads-its-environment-file.md)).
+Edit `agent.env` as plain `KEY=VALUE` lines and `#` comments only.
+
 Now edit both. `hub.yaml` is the product configuration — nodes, classes, thresholds,
 digest, notifier ([specs/hub-config.md](specs/hub-config.md)). `hub.env` holds only secrets:
 one token per node, named by that node's `token_env`, plus the Telegram credentials when the
@@ -112,6 +117,10 @@ printf %s "$token" | sudo ./deploy/install-agent.sh \
 unset token
 ```
 
+Copy the binary and `deploy/` together: the service definitions pass `--env-file`, which an
+agent built before them does not know, and the install would report success on a service that
+exits every time it starts.
+
 The macOS node is the same command with its own name (`--node laptop-a`); the script picks
 systemd or launchd from the system it is running on. It prints every path it wrote and the
 command that shows the service's state.
@@ -148,7 +157,8 @@ base tick the node and its volumes appear on the hub's page.
 Two failures look different from a service problem and are worth knowing:
 
 - **No token in the environment file** — the agent exits at startup naming `MONITOR_TOKEN`,
-  and the restart loop keeps that message coming every five seconds. Re-run the install with
+  and the supervisor keeps restarting it, so the message keeps coming — every five seconds on
+  Debian, every ten or so on macOS, where launchd sets the throttle. Re-run the install with
   the token.
 - **A wrong token** — the service stays happily up. The hub refuses the batches, so the node
   never appears with fresh values and eventually turns silent. Check `hub.env` on the hub

@@ -10,6 +10,11 @@
 
 set -eu
 
+# Byte-wise ranges below, and the same answer from find and mktemp whatever the operator's
+# locale is.
+LC_ALL=C
+export LC_ALL
+
 # Every file mode below is set explicitly, but a directory's is not: without this, a caller
 # whose umask is 0 would leave /etc/monitor writable by anyone.
 umask 022
@@ -102,6 +107,20 @@ env_line() {
 	trim "${assignment#*=}"
 	unquote "$trimmed"
 	value=$unquoted
+}
+
+# The environment file's directory holds the token, and nothing but this script creates it,
+# so requiring root to own it costs a legitimate installation nothing and closes both holes in
+# a directory an unprivileged account owns: a MONITOR_TOKEN line planted there for a re-run to
+# adopt, and a name planted there for root to write the token through. A symlink is such a
+# name, and an absent directory is where one is planted, so this runs again once the directory
+# exists — the check before the first write has nothing to look at while it does not.
+# `find -user` is the ownership test both BSD and GNU have; `stat` is not.
+check_env_dir() {
+	[ ! -L "$1" ] || refuse "the environment file's directory is a symlink: $1"
+	if [ -e "$1" ] && [ -z "$(find "$1" -maxdepth 0 -user root)" ]; then
+		refuse "the environment file's directory is not owned by root: $1"
+	fi
 }
 
 # Read one value out of the environment file without executing a line of it: the file holds
@@ -260,15 +279,8 @@ esac
 destdir=${DESTDIR:-}
 if [ -z "$destdir" ]; then
 	[ "$(id -u)" -eq 0 ] || refuse "must run as root: re-run under sudo"
-	# Nothing but this script creates the environment file's directory, so requiring root to
-	# own it costs a legitimate installation nothing and closes both holes in a directory an
-	# unprivileged account owns: a MONITOR_TOKEN line planted there for the read below to
-	# adopt, and a name planted there for root to write the token through. `find -user` is
-	# the ownership test both BSD and GNU have; `stat` is not.
 	env_dir=$(dirname "$env_file")
-	if [ -d "$env_dir" ] && [ -z "$(find "$env_dir" -maxdepth 0 -user root)" ]; then
-		refuse "the environment file's directory is not owned by root: $env_dir"
-	fi
+	check_env_dir "$env_dir"
 	command -v "$init_tool" >/dev/null 2>&1 ||
 		refuse "this host has neither systemd nor launchd; the agent installs on Debian and macOS"
 fi
@@ -298,6 +310,16 @@ for checked in "$hub" "$node" "$token"; do
 		refuse "a value contains a line break, and the environment file is one KEY=VALUE per line"
 		;;
 	esac
+	# Go's TrimSpace, which the agent trims with, knows whitespace this script's trim does not
+	# — a non-breaking space, a vertical tab, a line separator. Rather than grow a second
+	# parser to match it (ADR 0020), refuse anything outside printable ASCII: a token, a URL
+	# and a node name are ASCII, and a value pasted with an invisible character would install
+	# as one string and be read back as another, on a node that authenticates nowhere.
+	case $checked in
+	*[!\ -~]*)
+		refuse "a value holds a character outside printable ASCII, which the agent would strip or read differently"
+		;;
+	esac
 	# A quote that never closes is not read back differently — it makes the agent refuse the
 	# whole file, so the install would report success on a node that never starts again. The
 	# blanks come off first: the agent trims before it looks for the quote, and a quote hiding
@@ -320,6 +342,12 @@ for checked in "$hub" "$node" "$token"; do
 done
 
 install_file "$binary" 0755 "$destdir$binary_file"
+if [ -z "$destdir" ]; then
+	# Created here and checked again: between the refusal above and this line an account that
+	# owns the parent could have planted the symlink that check exists to catch.
+	mkdir -p "$env_dir"
+	check_env_dir "$env_dir"
+fi
 write_env_file "$destdir$env_file"
 install_file "$service_source" 0644 "$destdir$service_file"
 if [ -n "$log_file" ]; then

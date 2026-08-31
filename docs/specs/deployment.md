@@ -102,6 +102,7 @@ Every refusal below is decided before the first file is written, so the node is 
 | any | a value carrying a line break | refuses, naming no value: one of the three is the token |
 | any | a value opening with a quote it does not close, which would make the agent refuse the whole file | refuses, naming no value |
 | any | a value the agent would read back as something else — padded with blanks, or wrapped in quotes the format strips | refuses, naming no value |
+| any | a value holding a character outside printable ASCII, which the agent trims as whitespace or reads differently | refuses, naming no value |
 | any | an unknown flag | refuses, printing the usage |
 | any | the service definition it installs is not beside the script | refuses, naming the path |
 | a real install | the host has neither systemd nor launchd | refuses, naming what is supported |
