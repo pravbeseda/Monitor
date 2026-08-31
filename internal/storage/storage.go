@@ -60,5 +60,9 @@ type Storage interface {
 	// States returns every known node, ordered by name, with the latest value of each
 	// of its series.
 	States(ctx context.Context) ([]NodeState, error)
+	// Series lists every stored series of a metric, ordered by node then by labels.
+	Series(ctx context.Context, sel Selection) ([]SeriesRef, error)
+	// Points reads those series with the points stored from `from` onwards, oldest first.
+	Points(ctx context.Context, sel Selection, from time.Time) ([]SeriesPoints, error)
 	Close() error
 }

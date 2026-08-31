@@ -13,6 +13,11 @@ var byteUnits = map[Locale][]string{
 	Russian: {"Б", "кБ", "МБ", "ГБ", "ТБ", "ПБ"},
 }
 
+var dayLayouts = map[Locale]string{
+	English: "Jan 02",
+	Russian: "02.01",
+}
+
 var timeLayouts = map[Locale]string{
 	English: "2006-01-02 15:04 MST",
 	Russian: "02.01.2006 15:04 MST",
@@ -45,6 +50,14 @@ func (p *Printer) Percent(value float64) string {
 // Time renders an instant in UTC: the hub stores UTC and the reader is one person.
 func (p *Printer) Time(at time.Time) string {
 	return at.UTC().Format(timeLayouts[p.locale])
+}
+
+// Clock labels a chart axis spanning hours, where the full timestamp of Time would not fit.
+func (p *Printer) Clock(at time.Time) string { return at.UTC().Format("15:04") }
+
+// Day labels a chart axis spanning days, in the order each language writes a date.
+func (p *Printer) Day(at time.Time) string {
+	return at.UTC().Format(dayLayouts[p.locale])
 }
 
 // Number renders a plain value: a metric whose id carries no unit still has to be shown.

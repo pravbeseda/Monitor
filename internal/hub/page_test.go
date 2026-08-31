@@ -28,6 +28,14 @@ func (s stored) States(context.Context) ([]storage.NodeState, error) {
 	return s.states, s.err
 }
 
+func (s stored) Series(context.Context, storage.Selection) ([]storage.SeriesRef, error) {
+	return nil, s.err
+}
+
+func (s stored) Points(context.Context, storage.Selection, time.Time) ([]storage.SeriesPoints, error) {
+	return nil, s.err
+}
+
 var laptop = storage.NodeState{
 	Node:     "laptop-a",
 	LastSeen: lastSeen,

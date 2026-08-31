@@ -24,4 +24,36 @@ var catalogue = map[string]map[Locale]string{
 	"notify.readings": {English: "%s free, %s", Russian: "свободно %s, %s"},
 	"notify.silent":   {English: "no report", Russian: "нет отчётов"},
 	"digest.title":    {English: "Daily digest", Russian: "Ежедневная сводка"},
+
+	"history.title":   {English: "History", Russian: "История"},
+	"history.index":   {English: "All nodes", Russian: "Все узлы"},
+	"history.window":  {English: "Window", Russian: "Окно"},
+	"history.latest":  {English: "Latest", Russian: "Последнее значение"},
+	"history.empty":   {English: "No data for this window", Russian: "Нет данных за это окно"},
+	"history.several": {English: "Several series answer this query", Russian: "Этому запросу отвечает несколько серий"},
+
+	"history.error.metric": {
+		English: "A history query needs one metric",
+		Russian: "Запросу истории нужна ровно одна метрика",
+	},
+	"history.error.window": {
+		English: "The window is a whole number of minutes, hours or days, from 1m to 365d",
+		Russian: "Окно задаётся целым числом минут, часов или дней, от 1m до 365d",
+	},
+	"history.error.empty_parameter": {
+		English: "A parameter of this query carries no value",
+		Russian: "Параметр запроса остался без значения",
+	},
+	"history.error.unknown_parameter": {
+		English: "This query carries a parameter the panel does not know",
+		Russian: "В запросе есть параметр, которого панель не знает",
+	},
+	"history.error.repeated_parameter": {
+		English: "A parameter of this query is given more than once",
+		Russian: "Параметр запроса задан больше одного раза",
+	},
+	"history.error.too_many_series": {
+		English: "This query answers with more series than one page holds",
+		Russian: "Этому запросу отвечает больше серий, чем помещается на страницу",
+	},
 }

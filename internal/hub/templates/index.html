@@ -39,7 +39,7 @@
               <tr>
                 <td>{{ .Metric }}</td>
                 <td>{{ .Volume }}</td>
-                <td>{{ .Value }}</td>
+                <td><a href="{{ .History }}">{{ .Value }}</a></td>
                 <td>{{ .Collected }}</td>
               </tr>
             {{ end }}

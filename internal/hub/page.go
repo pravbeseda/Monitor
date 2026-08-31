@@ -7,11 +7,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/pravbeseda/monitor/internal/history"
 	"github.com/pravbeseda/monitor/internal/i18n"
 	"github.com/pravbeseda/monitor/internal/storage"
 )
 
-//go:embed templates/index.html
+//go:embed templates/*.html
 var templates embed.FS
 
 var pageTemplate = template.Must(template.ParseFS(templates, "templates/index.html"))
@@ -42,12 +43,15 @@ type valueView struct {
 	Volume    string
 	Value     string
 	Collected string
+	// History addresses the drill-down page of this series (docs/specs/history.md#page).
+	History string
 }
 
 // Page renders the latest state of every node.
 func Page(store storage.Storage) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		printer := i18n.For(i18n.Negotiate(r.URL.Query().Get("lang"), r.Header.Get("Accept-Language")))
+		values := r.URL.Query()
+		printer := i18n.For(i18n.Negotiate(values.Get("lang"), r.Header.Get("Accept-Language")))
 
 		states, err := store.States(r.Context())
 		if err != nil {
@@ -57,13 +61,13 @@ func Page(store storage.Storage) http.Handler {
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := pageTemplate.Execute(w, render(printer, states)); err != nil {
+		if err := pageTemplate.Execute(w, index(printer, states, language(values))); err != nil {
 			slog.Error("render the page", "error", err)
 		}
 	})
 }
 
-func render(printer *i18n.Printer, states []storage.NodeState) view {
+func index(printer *i18n.Printer, states []storage.NodeState, lang string) view {
 	out := view{
 		Locale:         printer.Locale(),
 		Title:          printer.T("page.title"),
@@ -88,6 +92,7 @@ func render(printer *i18n.Printer, states []storage.NodeState) view {
 				Volume:    volume(printer, value.Labels),
 				Value:     format(printer, value.Metric, value.Value),
 				Collected: printer.Time(value.TS),
+				History:   historyLink(state.Node, value.Metric, value.Labels, lang, ""),
 			})
 		}
 		out.Nodes = append(out.Nodes, node)
@@ -110,12 +115,12 @@ func volume(printer *i18n.Printer, labels map[string]string) string {
 	return strings.Join(parts, " · ")
 }
 
-// format reads the unit from the metric id, which is where the wire format keeps it.
+// format renders a value in the unit its metric id declares.
 func format(printer *i18n.Printer, metric string, value float64) string {
-	switch {
-	case strings.HasSuffix(metric, "_bytes"):
+	switch history.UnitOf(metric) {
+	case history.Bytes:
 		return printer.Bytes(value)
-	case strings.HasSuffix(metric, "_pct"):
+	case history.Percent:
 		return printer.Percent(value)
 	default:
 		return printer.Number(value)

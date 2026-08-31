@@ -53,6 +53,14 @@ func (s *spy) SaveIngest(_ context.Context, in storage.Ingest) error {
 
 func (s *spy) States(context.Context) ([]storage.NodeState, error) { return nil, nil }
 
+func (s *spy) Series(context.Context, storage.Selection) ([]storage.SeriesRef, error) {
+	return nil, nil
+}
+
+func (s *spy) Points(context.Context, storage.Selection, time.Time) ([]storage.SeriesPoints, error) {
+	return nil, nil
+}
+
 func (s *spy) Close() error { return nil }
 
 func newHandler(t *testing.T) (http.Handler, *spy, config.Node) {

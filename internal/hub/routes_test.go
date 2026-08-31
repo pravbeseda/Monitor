@@ -1,7 +1,6 @@
 package hub_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,18 +14,19 @@ import (
 	"github.com/pravbeseda/monitor/internal/storage"
 )
 
-type discard struct{}
-
-func (discard) SaveIngest(context.Context, storage.Ingest) error    { return nil }
-func (discard) States(context.Context) ([]storage.NodeState, error) { return nil, nil }
-func (discard) Close() error                                        { return nil }
-
 func routes(t *testing.T) http.Handler {
 	t.Helper()
+	return routesWith(t, stored{}, time.Now)
+}
+
+func routesWith(t *testing.T, store storage.Storage, now func() time.Time) http.Handler {
+	t.Helper()
 	t.Setenv("MONITOR_TOKEN_LAPTOP_A", strings.Repeat("synthetic-", 4))
+	t.Setenv("MONITOR_TOKEN_SERVER_B", strings.Repeat("synthetic-", 4))
 
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	body := "nodes:\n  laptop-a:\n    class: laptop\n    token_env: MONITOR_TOKEN_LAPTOP_A\n"
+	body := "nodes:\n  laptop-a:\n    class: laptop\n    token_env: MONITOR_TOKEN_LAPTOP_A\n" +
+		"  server-b:\n    class: server\n    token_env: MONITOR_TOKEN_SERVER_B\n"
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -34,7 +34,7 @@ func routes(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	return hub.Routes(cfg, discard{}, time.Now)
+	return hub.Routes(cfg, store, now)
 }
 
 func TestIngestIsMountedOnItsVersionedPath(t *testing.T) {
