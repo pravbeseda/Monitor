@@ -317,7 +317,7 @@ for checked in "$hub" "$node" "$token"; do
 	# as one string and be read back as another, on a node that authenticates nowhere.
 	case $checked in
 	*[!\ -~]*)
-		refuse "a value holds a character outside printable ASCII, which the agent would strip or read differently"
+		refuse "a value holds a character outside printable ASCII, and only ASCII is carried the same way by both readers"
 		;;
 	esac
 	# A quote that never closes is not read back differently — it makes the agent refuse the

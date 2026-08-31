@@ -67,9 +67,10 @@ sudo install -o monitor -g monitor -m 0600 hub.env.example /etc/monitor/hub.env
 ```
 
 `agent.env` and `hub.env` look alike and are not read alike: systemd reads `hub.env` and
-accepts `export` prefixes and `;` comments, while the agent reads `agent.env` itself and
-refuses the whole file over a line it cannot parse ([ADR 0020](decisions/0020-agent-reads-its-environment-file.md)).
-Edit `agent.env` as plain `KEY=VALUE` lines and `#` comments only.
+ignores a line it cannot parse, `;` comments included, while the agent reads `agent.env`
+itself and refuses the whole file over one such line
+([ADR 0020](decisions/0020-agent-reads-its-environment-file.md)). Edit `agent.env` as plain
+`KEY=VALUE` lines and `#` comments only — an `export` prefix works in neither file.
 
 Now edit both. `hub.yaml` is the product configuration — nodes, classes, thresholds,
 digest, notifier ([specs/hub-config.md](specs/hub-config.md)). `hub.env` holds only secrets:

@@ -653,8 +653,8 @@ func TestARefusalNamesItsCauseAndWritesNothing(t *testing.T) {
 }
 
 // spec: deployment.md#refusing — a real install refuses for a user that is not root and says
-// to re-run under sudo. Every check after it also refuses before the first write, so the run
-// touches nothing on the machine the suite happens to be running on.
+// to re-run under sudo. It fires before any check that could write, so the run touches
+// nothing on the machine the suite happens to be running on.
 func TestARealInstallRefusesForAUserThatIsNotRoot(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("this refusal is the one root passes; a real install would touch this machine")

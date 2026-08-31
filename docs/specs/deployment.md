@@ -108,6 +108,7 @@ Every refusal below is decided before the first file is written, so the node is 
 | a real install | the host has neither systemd nor launchd | refuses, naming what is supported |
 | a real install | the invoking user is not root | refuses, saying to re-run under `sudo` |
 | a real install | the environment file's directory exists and is not owned by root | refuses, naming the directory |
+| a real install | that directory is a symlink, whenever the run looks — including after it created it | refuses, naming the directory |
 
 ### Re-running
 
@@ -159,8 +160,10 @@ makes the behaviour above testable without touching the machine running the test
   another user can read.
 - No deployment setting reaches a service's arguments either
   ([0020](../decisions/0020-agent-reads-its-environment-file.md)).
-- Every refusal happens before the first write, so a rejected run leaves the node exactly as
-  it was.
+- Every refusal in the table above happens before the first write, so a rejected run leaves
+  the node exactly as it was. The one exception is named there: the environment file's
+  directory is checked again after it has been created, because an account that owns its
+  parent can plant a symlink at any moment, and by then the binary is installed.
 - A run that fails after it has begun writing stops at that failure and names what it
   already wrote; it does not continue, and it does not roll back. Re-running it is the fix.
 - A successful run leaves a service that starts on boot.
