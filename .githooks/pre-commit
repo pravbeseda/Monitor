@@ -31,7 +31,16 @@ if [ -n "$gofiles" ]; then
 		echo "pre-commit: Go files are staged but go is not installed." >&2
 		exit 1
 	fi
+	# One staged path per line. Split on newlines only, so a path holding a space stays one
+	# argument, and turn globbing off, so one holding a bracket is not expanded.
+	oldifs=$IFS
+	IFS='
+'
+	set -f
+	# shellcheck disable=SC2086 # deliberate: the IFS above is what makes this split by line
 	unformatted=$(gofmt -l $gofiles)
+	set +f
+	IFS=$oldifs
 	if [ -n "$unformatted" ]; then
 		echo "pre-commit: not gofmt-ed:" >&2
 		echo "$unformatted" | sed 's/^/  /' >&2

@@ -203,9 +203,9 @@ Each line is an index into the ADR that owns it.
 - **The agent carries no configuration** beyond the hub address and its token: which sensors
   run, how often and with which thresholds comes from the hub in the ingest response, layered
   sensor default → node class → node → sensor or volume. → 0010
-- **Quality is machine-enforced**: CI runs `gofmt`, `go vet`, `golangci-lint` and
-  `go test -race -cover`, and a red check blocks the merge; the pre-commit hook runs the fast
-  pair (`gofmt`, `go vet`). → 0011
+- **Quality is machine-enforced**: CI runs `gofmt`, `go vet`, `golangci-lint`,
+  `go test -race -cover` and `shellcheck` over the shell the project ships, and a red check
+  blocks the merge; the pre-commit hook runs the fast pair (`gofmt`, `go vet`). → 0011, 0021
 - **Disk thresholds are a floor plus a band**: alert below the floor, or below the ratio
   while absolute headroom is under the ceiling; `role: backup` volumes use headroom only.
   → 0012

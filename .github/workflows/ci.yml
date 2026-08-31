@@ -42,3 +42,11 @@ jobs:
 
       - name: go test
         run: go test -race -cover ./...
+
+      # The install script is POSIX sh, so -s sh checks it as its shebang claims and as
+      # Debian's /bin/sh (dash) will read it. Ubuntu only: the lint does not vary by runner,
+      # and shellcheck is part of the GitHub-hosted Ubuntu image while nothing promises it
+      # on the macOS one — installing it there would spend a brew download on a duplicate.
+      - name: shellcheck
+        if: matrix.os == 'ubuntu-latest'
+        run: shellcheck -s sh deploy/install-agent.sh .githooks/pre-commit

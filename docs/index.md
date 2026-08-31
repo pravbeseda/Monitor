@@ -9,6 +9,7 @@ entry point to every document in the project.
 |---|---|
 | [concept.md](concept.md) | Idea, architectural principles, planned skins, domains, roadmap |
 | [poc.md](poc.md) | POC spec: scope, terminology, wire format, work plan, answered questions |
+| [install.md](install.md) | Install guide: build, set up the hub host, install and verify a node, upgrade, uninstall |
 | [plans/stage-1-skeleton.md](plans/stage-1-skeleton.md) | Step plan for POC stage 1, kept as a record; plans now live in the task and the pull request ([0017](decisions/0017-one-spec-and-decision-gates.md)) |
 
 ## Architecture decisions
@@ -36,6 +37,9 @@ One decision per file, each stating what was rejected and why. New records start
 | [0016](decisions/0016-leaving-critical-is-instant.md) | Leaving critical is announced as instantly as entering it | accepted |
 | [0017](decisions/0017-one-spec-and-decision-gates.md) | One document per unit of work; gates on decisions, not documents | accepted |
 | [0018](decisions/0018-history-through-the-api.md) | History is served by the hub's API; a chart is one of its consumers | accepted |
+| [0019](decisions/0019-deployment-layout.md) | Install into system paths, with one environment file per binary | accepted |
+| [0020](decisions/0020-agent-reads-its-environment-file.md) | The agent reads its own environment file; no shell sources it | accepted |
+| [0021](decisions/0021-shell-is-linted-too.md) | The shell the project ships is linted like its Go | accepted |
 
 ## Behaviour specs
 
@@ -53,6 +57,7 @@ can see ([ADR 0017](decisions/0017-one-spec-and-decision-gates.md)). New specs s
 | [agent.md](specs/agent.md) | The agent: local configuration, tick loop, delivery and configuration application | approved |
 | [evaluation.md](specs/evaluation.md) | Levels, hysteresis, the event log, silence, digests and the notifier boundary | approved |
 | [history.md](specs/history.md) | The history series, `/api/v1/series`, `/api/v1/history` and the drill-down page | approved |
+| [deployment.md](specs/deployment.md) | The install layout, the units and what `install-agent.sh` does to a node | approved |
 
 ## Design notes
 
@@ -70,7 +75,6 @@ Reasoning from working sessions, including options that were rejected.
 - `docs/architecture/` — subsystem documents arrive with the code. Until then the
   architecture fits in [concept.md](concept.md), the ADRs and the specs, and duplicating it
   would create a second source of truth.
-- Install and deployment guide — with POC stage 3, where the units and the nginx vhost land.
 
 ## Where a new open question goes
 

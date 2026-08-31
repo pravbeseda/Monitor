@@ -109,7 +109,8 @@ nodes:
       of [0016](decisions/0016-leaving-critical-is-instant.md), daily digest
 
 **Stage 3 — operation**
-- [ ] systemd and launchd units, agent install script
+- [x] systemd and launchd units, agent install script
+      ([deployment spec](specs/deployment.md), [install guide](install.md))
 - [ ] nginx vhost for the hub, per-node tokens, authentication on the web page and a
       credential a program can send to the read endpoints
 - [x] Decide how history graphs are served, before any charting is built by hand:

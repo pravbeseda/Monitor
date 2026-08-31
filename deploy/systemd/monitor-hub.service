@@ -1,0 +1,31 @@
+# The hub, as a system service. Every path is fixed by docs/specs/deployment.md; the listen
+# address is not passed, because binding to loopback is the binary's own default.
+
+[Unit]
+Description=Monitor hub
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=monitor
+Group=monitor
+EnvironmentFile=/etc/monitor/hub.env
+ExecStart=/usr/local/bin/monitor-hub --config /etc/monitor/hub.yaml --db /var/lib/monitor/monitor.db
+Restart=always
+RestartSec=5s
+
+NoNewPrivileges=true
+# SQLite creates the database with the umask it inherits; the default 0022 would leave the
+# measurements readable by every local account.
+UMask=0077
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# SQLite writes the database and its -wal and -shm siblings, so this one directory stays
+# writable while the rest of the filesystem does not.
+ReadWritePaths=/var/lib/monitor
+
+[Install]
+WantedBy=multi-user.target

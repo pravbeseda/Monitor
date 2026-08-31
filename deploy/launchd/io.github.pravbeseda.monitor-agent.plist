@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The agent, as a system daemon. Every path is fixed by docs/specs/deployment.md.
+	     launchd has no equivalent of EnvironmentFile, so the agent reads the file itself:
+	     no shell stands in between, nothing in the file is ever executed, and launchd
+	     supervises the agent directly. The plist holds no secret, so it stays a
+	     world-readable daemon plist. -->
+	<key>Label</key>
+	<string>io.github.pravbeseda.monitor-agent</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/monitor-agent</string>
+		<string>--env-file</string>
+		<string>/usr/local/etc/monitor/agent.env</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/var/log/monitor-agent.log</string>
+	<key>StandardErrorPath</key>
+	<string>/var/log/monitor-agent.log</string>
+</dict>
+</plist>

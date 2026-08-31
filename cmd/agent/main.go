@@ -2,6 +2,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"flag"
@@ -18,8 +19,13 @@ import (
 	"github.com/pravbeseda/monitor/internal/version"
 )
 
-// tokenVariable holds the node's token: a secret never lives in a file in the tree.
-const tokenVariable = "MONITOR_TOKEN"
+// The keys an environment file may supply. tokenVariable is also read from the process
+// environment: a secret never lives in a file in the tree.
+const (
+	hubVariable   = "MONITOR_HUB"
+	nodeVariable  = "MONITOR_NODE"
+	tokenVariable = "MONITOR_TOKEN"
+)
 
 // requestTimeout keeps one unanswered request from swallowing a whole tick.
 const requestTimeout = 30 * time.Second
@@ -86,8 +92,11 @@ func settings(args []string, out io.Writer) (options, error) {
 	flags := flag.NewFlagSet("agent", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	var opts options
+	var envFile string
 	flags.StringVar(&opts.hub, "hub", "", "base URL of the hub")
 	flags.StringVar(&opts.node, "node", "", "this node's name, as the hub knows it")
+	flags.StringVar(&envFile, "env-file", "",
+		"KEY=VALUE file supplying "+hubVariable+", "+nodeVariable+" and "+tokenVariable)
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			flags.SetOutput(out)
@@ -96,13 +105,24 @@ func settings(args []string, out io.Writer) (options, error) {
 		}
 		return options{}, fmt.Errorf("parse flags: %w", err)
 	}
+	opts.token = os.Getenv(tokenVariable)
+	if envFile != "" {
+		values, err := agent.ReadEnvFile(envFile)
+		if err != nil {
+			return options{}, err
+		}
+		// Anything given explicitly wins over the file: cmp.Or takes the first value set.
+		opts.hub = cmp.Or(opts.hub, values[hubVariable])
+		opts.node = cmp.Or(opts.node, values[nodeVariable])
+		opts.token = cmp.Or(opts.token, values[tokenVariable])
+	}
 	if opts.hub == "" {
 		return options{}, errors.New("--hub is required: the hub URL has no default")
 	}
 	if opts.node == "" {
 		return options{}, errors.New("--node is required: it must match the name the hub's token belongs to")
 	}
-	if opts.token = os.Getenv(tokenVariable); opts.token == "" {
+	if opts.token == "" {
 		return options{}, fmt.Errorf("%s is unset: the node's token has no default", tokenVariable)
 	}
 	return opts, nil

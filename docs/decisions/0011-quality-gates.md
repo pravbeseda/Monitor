@@ -1,6 +1,7 @@
 # 0011. Quality is enforced by tooling, not by attention
 
-- **Status:** accepted
+- **Status:** accepted; extended by [0021](0021-shell-is-linted-too.md), which adds a fifth
+  gate for the shell the project ships
 - **Date:** 2026-08-28
 - **Source:** [POC](../poc.md) question 1
 
