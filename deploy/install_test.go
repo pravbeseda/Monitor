@@ -618,6 +618,14 @@ func TestARefusalNamesItsCauseAndWritesNothing(t *testing.T) {
 			names: "read back as something else",
 		},
 		{
+			// Read as one line, the rest of a multi-line paste went unseen: the token
+			// installed truncated and the run reported success.
+			name:  "a token pasted with a line break in it",
+			args:  []string{"--binary", binary, "--hub", exampleHub, "--node", testNode},
+			stdin: testToken + "\nMONITOR_HUB=https://elsewhere.example.com",
+			names: "line break",
+		},
+		{
 			// The agent trims Unicode whitespace this script cannot see, so a token pasted
 			// with a non-breaking space would install as one string and be read back as
 			// another — a node that authenticates nowhere and reports nothing.
@@ -673,6 +681,67 @@ func TestARealInstallRefusesForAUserThatIsNotRoot(t *testing.T) {
 	assertNoToken(t, stdout, stderr)
 }
 
+// spec: deployment.md#refusing — the service definition the script installs sits beside it,
+// and a run that copied the script alone refuses instead of installing a node with no
+// service. Unlike the three refusals a staged suite cannot reach, this one it can.
+func TestARunWithoutItsServiceDefinitionRefuses(t *testing.T) {
+	alone := filepath.Join(t.TempDir(), "install-agent.sh")
+	body, err := os.ReadFile(script)
+	if err != nil {
+		t.Fatalf("read the script: %v", err)
+	}
+	if err := os.WriteFile(alone, body, 0o755); err != nil {
+		t.Fatalf("copy the script: %v", err)
+	}
+
+	destDir := t.TempDir()
+	cmd := exec.Command(alone, "--binary", agentBinary(t), "--hub", exampleHub, "--node", testNode)
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "DESTDIR=" + destDir}
+	cmd.Stdin = strings.NewReader(testToken)
+	out, err := cmd.CombinedOutput()
+
+	if err == nil {
+		t.Fatalf("the run succeeded without a service definition beside it:\n%s", out)
+	}
+	if !strings.Contains(string(out), "service definition") {
+		t.Errorf("the refusal does not name the missing definition; it said:\n%s", out)
+	}
+	if written := tree(t, destDir); len(written) != 0 {
+		t.Errorf("the refused run wrote %v", sortedKeys(written))
+	}
+}
+
+// spec: deployment.md#refusing — the agent refuses the whole file over one line it cannot
+// read, so a re-run over a file carrying such a line refuses instead of reporting success on
+// a node that will not start. A comment and a blank line are not such a line.
+func TestARerunRefusesAFileTheAgentWouldRefuse(t *testing.T) {
+	destDir, binary := t.TempDir(), agentBinary(t)
+	install(t, destDir, binary, exampleHub, testNode, testToken)
+	envFile := filepath.Join(destDir, hostLayout().env.path)
+	kept := read(t, envFile)
+
+	if err := os.WriteFile(envFile, []byte(kept+"export MONITOR_EXTRA=1\n"), 0o600); err != nil {
+		t.Fatalf("edit the environment file: %v", err)
+	}
+	_, stderr, err := run{destDir: destDir, args: []string{"--binary", binary, "--hub", exampleHub, "--node", testNode}, stdin: testToken}.start(t)
+	if err == nil {
+		t.Fatalf("the run succeeded over a file the agent refuses")
+	}
+	if !strings.Contains(stderr, "line 4") {
+		t.Errorf("the refusal does not name the line; it said:\n%s", stderr)
+	}
+
+	if err := os.WriteFile(envFile, []byte("# a note\n\n"+kept), 0o600); err != nil {
+		t.Fatalf("edit the environment file: %v", err)
+	}
+	install(t, destDir, binary, exampleHub, testNode, "")
+
+	if edited := read(t, envFile); !strings.Contains(edited, "# a note") {
+		t.Errorf("the run dropped a comment it does not own:\n%s", edited)
+	}
+	assertEnv(t, destDir, exampleHub, testNode, testToken)
+}
+
 // spec: deployment.md#staged-installs — no service is registered, started or restarted. The
 // stand-ins on PATH record any call, so a run that reached for one is visible.
 func TestAStagedRunCallsNoServiceCommand(t *testing.T) {
@@ -717,7 +786,7 @@ func TestAStagedRunCallsNoServiceCommand(t *testing.T) {
 // are genuinely absent rather than merely unused.
 func TestAStagedRunNeedsNoInitSystemOnPath(t *testing.T) {
 	pathDir := t.TempDir()
-	for _, tool := range []string{"basename", "dirname", "mkdir", "rm", "cp", "chmod", "mv", "uname", "id", "mktemp"} {
+	for _, tool := range []string{"basename", "dirname", "mkdir", "rm", "cp", "chmod", "mv", "uname", "id", "mktemp", "cat", "find"} {
 		found, err := exec.LookPath(tool)
 		if err != nil {
 			t.Fatalf("find %s: %v", tool, err)

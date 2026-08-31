@@ -103,6 +103,7 @@ Every refusal below is decided before the first file is written, so the node is 
 | any | a value opening with a quote it does not close, which would make the agent refuse the whole file | refuses, naming no value |
 | any | a value the agent would read back as something else — padded with blanks, or wrapped in quotes the format strips | refuses, naming no value |
 | any | a value holding a character outside printable ASCII, which the agent trims as whitespace or reads differently | refuses, naming no value |
+| already installed | a line of the existing file is neither blank, a comment, nor an assignment the agent accepts | refuses, naming the file and the line number |
 | any | an unknown flag | refuses, printing the usage |
 | any | the service definition it installs is not beside the script | refuses, naming the path |
 | a real install | the host has neither systemd nor launchd | refuses, naming what is supported |
@@ -174,8 +175,11 @@ makes the behaviour above testable without touching the machine running the test
   process, which is why the run ends with a restart rather than a reload.
 - **A token that is already installed and not supplied again** — kept. The alternative, an
   empty token written over a working one, breaks a node during a routine upgrade.
-- **The environment file edited by hand** — supported: the run rewrites `MONITOR_HUB` and
-  `MONITOR_NODE` from its flags and leaves any other line alone, the stored token included.
+- **The environment file edited by hand** — supported for the lines the agent itself accepts:
+  the run rewrites `MONITOR_HUB` and `MONITOR_NODE` from its flags and leaves any other line
+  alone, the stored token included. A line the agent would refuse is refused here instead,
+  because the agent refuses the whole file over one of them and the install would otherwise
+  report success on a node that never starts.
 - **A binary for the wrong operating system** — not detected. It installs, the service fails
   to start, and the system log says so.
 - **`sudo` stripping `MONITOR_TOKEN`** — the default on both systems, and the reason stdin

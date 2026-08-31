@@ -88,6 +88,17 @@ unquote() {
 		unquoted=${unquoted#?}
 		unquoted=${unquoted%?}
 		;;
+	# A quote that opens and never closes is what the agent refuses the whole file over, so it
+	# is not a value here either.
+	"'"* | '"'*) return 1 ;;
+	esac
+}
+
+# The names the agent accepts as keys: a leading digit or a stray character makes it refuse
+# the file, `export MONITOR_TOKEN=…` included.
+is_variable_name() {
+	case $1 in
+	"" | [0-9]* | *[!A-Za-z0-9_]*) return 1 ;;
 	esac
 }
 
@@ -104,9 +115,30 @@ env_line() {
 	esac
 	trim "${assignment%%=*}"
 	key=$trimmed
+	is_variable_name "$key" || return 1
 	trim "${assignment#*=}"
-	unquote "$trimmed"
+	unquote "$trimmed" || return 1
 	value=$unquoted
+}
+
+# The agent refuses the whole file over one line it cannot read (ADR 0020), and this script
+# preserves the lines it does not own — so a file carrying such a line is refused before
+# anything is written. Without this, a re-run over a hand-edited file printed "installed",
+# restarted the service, and left a node the agent will not start: the outcome the value
+# checks exist to prevent, reached from the other side.
+check_env_file() {
+	[ -f "$1" ] || return 0
+	number=0
+	line=
+	while IFS= read -r line || [ -n "$line" ]; do
+		number=$((number + 1))
+		trim "$line"
+		case $trimmed in
+		"" | "#"*) continue ;;
+		esac
+		env_line "$line" ||
+			refuse "$1 line $number: the agent reads this file, and this line is not KEY=VALUE it accepts"
+	done <"$1"
 }
 
 # The environment file's directory holds the token, and nothing but this script creates it,
@@ -285,10 +317,16 @@ if [ -z "$destdir" ]; then
 		refuse "this host has neither systemd nor launchd; the agent installs on Debian and macOS"
 fi
 
+check_env_file "$destdir$env_file"
+
 token=${MONITOR_TOKEN:-}
 unset MONITOR_TOKEN # no child process needs it in its environment
 if [ -z "$token" ] && [ ! -t 0 ]; then
-	IFS= read -r token || :
+	# All of what was piped in, not its first line: `read` would store the first line of a
+	# multi-line paste and leave the rest unseen, so a truncated token installed and the run
+	# reported success. The substitution drops the trailing newline a pipe usually ends with;
+	# a newline inside the value survives it, for the check below to refuse.
+	token=$(cat)
 fi
 if [ -z "$token" ]; then
 	# A token already installed and not supplied again is kept: writing an empty one over a

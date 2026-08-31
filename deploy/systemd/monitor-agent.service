@@ -19,10 +19,13 @@ RestartSec=5s
 
 # The agent only reads: it stats mounted volumes and posts what it found. Root is what makes
 # every volume visible, and nothing beyond that is needed.
+# No PrivateTmp: it would mount a private tmpfs over /tmp and /var/tmp inside the service's
+# namespace, and the disk sensor enumerates volumes from /proc/self/mounts — a node whose
+# /tmp is a real volume would simply stop reporting it, with no error and no silent-node
+# event. The two directives below change what is writable, not what is mounted.
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
-PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

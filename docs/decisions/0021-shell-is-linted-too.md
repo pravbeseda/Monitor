@@ -11,15 +11,17 @@
 rather than four projects assembled by hand, and named four gates — all of them Go's.
 
 Stage 3 ships `deploy/install-agent.sh`: a POSIX `sh` script that runs as root, writes a
-secret and installs a service. It is the one artifact in the repository no Go gate can see,
-and shell is where an unquoted expansion is a defect rather than a style opinion. Its own Go
-test drives it, which catches behaviour; nothing catches the constructs a shell accepts and
-misreads.
+secret and installs a service. It joins `.githooks/pre-commit`, the hook
+[0011](0011-quality-gates.md) itself leans on — the two artifacts in the repository no Go gate
+can see, and shell is where an unquoted expansion is a defect rather than a style opinion. The
+installer's own Go test drives it, which catches behaviour; nothing catches the constructs a
+shell accepts and misreads, and the hook had one: `gofmt -l $gofiles` split on every blank,
+not only on the newlines that separate the staged paths.
 
 ## Decision
 
-`shellcheck -s sh` runs in CI over the shell this repository ships, and a finding blocks the
-merge like any other gate. `-s sh` reads the script as the POSIX shell its shebang claims and
+`shellcheck -s sh` runs in CI over the shell this repository ships — the installer and the
+pre-commit hook — and a finding blocks the merge like any other gate. `-s sh` reads the script as the POSIX shell its shebang claims and
 as Debian's `/bin/sh` — dash — actually is, rather than as bash.
 
 It runs on the Ubuntu runner only: the lint does not vary by operating system, `shellcheck` is

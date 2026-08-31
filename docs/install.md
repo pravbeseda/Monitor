@@ -173,8 +173,12 @@ An upgrade — build a new binary, copy it over, and run without a token:
 
 ```sh
 sudo ./deploy/install-agent.sh \
-    --binary ./monitor-agent --hub https://hub.example.com --node server-b
+    --binary ./monitor-agent --hub https://hub.example.com --node server-b < /dev/null
 ```
+
+`< /dev/null` is what says "no new token, keep the stored one". Without it a run whose stdin
+is a pipe rather than a terminal — `ssh node 'sudo ./install-agent.sh …'`, a CI job — waits
+for a token that is never coming.
 
 A rotation is the same run with the new token piped in, exactly as in step 3.
 
