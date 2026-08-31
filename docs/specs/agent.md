@@ -33,8 +33,10 @@ Anything given explicitly wins over the file: a flag over its key, and `MONITOR_
 the process environment over the file's token. The file is `KEY=VALUE` data the agent reads
 and never executes ([0020](../decisions/0020-agent-reads-its-environment-file.md)): a value
 may be wrapped in matching quotes to show where it ends, and is taken literally otherwise.
-An unreadable file names the path; a line that is not `KEY=VALUE`, or whose quote is never
-closed, names its number and no part of its text; and a key the agent does not know is
+Blank lines and lines opening with `#` are skipped, whitespace around a key and its value is
+trimmed, a line ends wherever any system ends one, and the last of two assignments to one key
+wins. An unreadable file names the path; a line that is not `KEY=VALUE`, or whose quote is
+never closed, names its number and no part of its text; and a key the agent does not know is
 ignored.
 
 ## Behaviour

@@ -1,8 +1,8 @@
 # 0019. Install into system paths, with one environment file per binary
 
-- **Status:** accepted; the launchd bullet is amended by
-  [0020](0020-agent-reads-its-environment-file.md), which has the agent read the environment
-  file itself instead of a shell sourcing it
+- **Status:** accepted; the unit-file bullet — both its systemd and its launchd half — is
+  amended by [0020](0020-agent-reads-its-environment-file.md), which has the agent read the
+  environment file itself instead of a unit or a shell handing it the values
 - **Date:** 2026-08-31
 - **Source:** [POC](../poc.md) stage 3, [deployment spec](../specs/deployment.md)
 

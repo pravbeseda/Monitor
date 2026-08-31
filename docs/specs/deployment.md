@@ -150,8 +150,8 @@ makes the behaviour above testable without touching the machine running the test
   ([0007](../decisions/0007-public-repository.md)).
 - The token is never an argument to a command, never printed, and never lands in a file
   another user can read.
-- No deployment setting reaches a service's arguments either: a hub URL or a node name in
-  `ExecStart` is in `ps` for every local account.
+- No deployment setting reaches a service's arguments either
+  ([0020](../decisions/0020-agent-reads-its-environment-file.md)).
 - Every refusal happens before the first write, so a rejected run leaves the node exactly as
   it was.
 - A run that fails after it has begun writing stops at that failure and names what it

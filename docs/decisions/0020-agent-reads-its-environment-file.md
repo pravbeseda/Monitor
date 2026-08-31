@@ -3,8 +3,8 @@
 - **Status:** accepted
 - **Date:** 2026-08-31
 - **Source:** a security review of the stage-3 service definitions
-- **Amends:** the launchd bullet of [0019](0019-deployment-layout.md); its paths and its
-  one-environment-file-per-binary rule stand
+- **Amends:** the unit-file bullet of [0019](0019-deployment-layout.md), systemd half and
+  launchd half alike; its paths and its one-environment-file-per-binary rule stand
 
 ## Context
 

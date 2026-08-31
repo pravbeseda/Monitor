@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/pravbeseda/monitor/internal/agent"
 )
 
 const (
@@ -364,6 +366,21 @@ func TestThePlistLogsBothStreams(t *testing.T) {
 		routed := regexp.MustCompile(`<key>` + key + `</key>\s*<string>/var/log/monitor-agent\.log</string>`)
 		if !routed.MatchString(body) {
 			t.Errorf("%s does not send %s to /var/log/monitor-agent.log", agentPlist, key)
+		}
+	}
+}
+
+// spec: agent.md#local-configuration — the shipped example is the reference shape of the file
+// the agent parses, so the parser is what has to accept it: a comment or a blank line the
+// example uses freely and the parser refused would be found by an operator, not by a test.
+func TestTheExampleEnvironmentFileParses(t *testing.T) {
+	values, err := agent.ReadEnvFile(agentEnv)
+	if err != nil {
+		t.Fatalf("parse %s: %v", agentEnv, err)
+	}
+	for _, key := range []string{"MONITOR_HUB", "MONITOR_NODE", "MONITOR_TOKEN"} {
+		if values[key] == "" {
+			t.Errorf("%s supplies no %s", agentEnv, key)
 		}
 	}
 }
